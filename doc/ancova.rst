@@ -40,7 +40,7 @@ We can recreate this example using the *ANCOVA* object
    p = Factor('P', ['M', 'L'])
    x = Term("X")
 
-   f = ANCOVA({x:[(e,),(p,)]})
+   f = ANCOVA((x,e),(x,p))
    print sorted(f.formula.terms)
 
 This would output:
@@ -53,7 +53,7 @@ Interchanging the order above
 
 .. testcode::
 
-   f2 = ANCOVA({x:[(p,),(e,)]})
+   f2 = ANCOVA((x,p),(x,e))
    print sorted(f2.formula.terms)
 
 .. testoutput::
@@ -109,7 +109,7 @@ As well as in the *ANCOVA*
 
 .. testcode::
 
-   f3 = ANCOVA({x:[(p,e)]})
+   f3 = ANCOVA((x,(p,e)))
    print f3.codings
    print sorted(f3.formula.terms)
 
@@ -129,7 +129,7 @@ predict:
 
 .. testcode::
 
-   f4 = ANCOVA({x:[(p,e),(p,),(e,)]})
+   f4 = ANCOVA((x,(p,e)),(x,p),(x,e))
    print f4.codings
    print sorted(f4.formula.terms)
 
@@ -147,7 +147,7 @@ formula
 
 .. testcode::
 
-   f5 = ANCOVA({x:[(p,e),(e,),(p,)]})
+   f5 = ANCOVA((x,(p,e)),(x,e),(x,p))
    print f5.codings
    print sorted(f5.formula.terms)
 
@@ -175,7 +175,7 @@ by
 
 .. testcode::
 
-   f6 = ANCOVA({x:[(), (p,e),(e,),(p,)]})
+   f6 = ANCOVA(x,(x,e),(x,p),(x,(p,e)))
    print f6.codings
    print sorted(f6.formula.terms)
 
@@ -195,7 +195,9 @@ constructor of ANCOVA
 
 .. testcode::
 
-   f7 = ANCOVA({x:[(), (p,e),(e,),(p,)]}, add_intercept=False)
+   ANCOVA.add_interecept=False
+   f7 = ANCOVA(x,(x,(p,e)),(x,e),(x,p))
+   ANCOVA.add_interecept=True
    print f7.codings
    print sorted(f7.formula.terms)
 
@@ -226,7 +228,9 @@ maps to a specific contrast.
 
 .. testcode::
 
-   f7 = ANCOVA({x:[(), (p,e),(e,),(p,)]}, add_intercept=False)
+   ANCOVA.add_interecept=False
+   f7 = ANCOVA(x, (x,(p,e)), (x,e), (x,p))
+   ANCOVA.add_interecept=True
    print f7.contrasts
 
 .. testoutput::
@@ -240,7 +244,7 @@ As opposed to
 
 .. testcode::
 
-   f3 = ANCOVA({x:[(p,e)]})
+   f3 = ANCOVA((x,(p,e)))
    print f3.contrasts
 
 which yields

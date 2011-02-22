@@ -32,15 +32,12 @@ def random_recarray(size):
 def random_categorical_formula(size=500):
     nterms = np.random.poisson(5)
     X, n, c = random_recarray(size)
-    d = {}
+    d = []
     for _ in range(nterms):
-        expr = random_subset(n, np.random.binomial(len(n), 0.5))
-        f = []
-        for _ in range(np.random.poisson(2)):
-            factors = random_subset(c, np.random.poisson(1))
-            f.append(np.unique(factors))
-        d[np.product(np.unique(expr))] = f
-    return ANCOVA(d)
+        expr = np.product(np.unique(random_subset(n, np.random.binomial(len(n), 0.5))))
+        factors = tuple(set(random_subset(c, np.random.poisson(1))))
+        d.append((expr, factors))
+    return ANCOVA(*tuple(set(d)))
 
 def random_from_factor(factor, size):
     return random_subset(factor.levels, size)
@@ -60,11 +57,12 @@ def random_from_terms_factors(terms, factors, size):
 def random_from_categorical_formula(cf, size):
     exprs = []
     factors = []
-    for key, value in cf.expr_factor_dict.items():
+    for key, value in cf.graded_dict.items():
         if str(key) != '1':
             exprs += str(key).split("*")
-        for fs in value:
-            factors += list(fs)
+        for order in value:
+            for fs in value[order]:
+                factors += list(fs)
     return random_from_terms_factors(list(set(exprs)), list(set(factors)), size)
 
 def simple():
@@ -73,10 +71,8 @@ def simple():
     f = Factor('f', ['a','b','c'])
     g = Factor('g', ['aa','bb','cc'])
     h = Factor('h', ['a','b','c','d','e','f','g','h','i','j'])
-    d = ANCOVA({x*y:((g,f),),x:([f],[g,f]),
-                            1:([g],),
-                            z:([h],[h,g,f]),
-                            x*y*z:([h],[f])})
+    d = ANCOVA((x*y,(g,f)),(x,(f,)),(x,[g,f]),(1,[g]),
+                (z,[h]),(z,[h,g,f]), (x*y*z,[h]),(x*y*z,[f]))
 
     return d
 
@@ -86,25 +82,27 @@ def simple2():
     f = Factor('f', ['a','b','c'])
     g = Factor('g', ['aa','bb','cc'])
     h = Factor('h', ['a','b','c','d','e','f','g','h','i','j'])
-    d = ANCOVA({x*y:((g,f),),x:([f],[g,f]),
-                            1:([g],),
-                            z:([h],[h,g,f]),
-                            x*y*z:([f],[h])})
+    d = ANCOVA((x*y,(g,f)),(x,(f,)),(x,[g,f]),(1,[g]),
+                (z,[h]),(z,[h,g,f]), (x*y*z,[f]),(x*y*z,[h]))
 
     return d
 
-def testR(d=simple(), size=500):
-
+def testR(d=None, size=500):
+    if d is None:
+        d = simple()
     X = random_from_categorical_formula(d, size)
 
     X = ML.rec_append_fields(X, 'response', np.random.standard_normal(size))
+
     fname = tempfile.mktemp()
     ML.rec2csv(X, fname)
+
     Rstr = '''
     data = read.table("%s", sep=',', header=T)
     cur.lm = lm(response ~ %s, data)
     COEF = coef(cur.lm)
     ''' % (fname, d.Rstr)
+
     rpy2.robjects.r(Rstr)
     remove(fname)
     nR = list(np.array(rpy2.robjects.r("names(COEF)")))
@@ -124,7 +122,7 @@ def testR(d=simple(), size=500):
     return d, X, nR, nF
 
 def test2():
-    testR()
+    testR(d=random_categorical_formula())
 
 def test3():
     testR(d=simple2())

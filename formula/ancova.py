@@ -8,14 +8,6 @@ from utils import factor_codings
 
 class ANCOVA(object):
 
-    # Add a global intercept as R does (unless -1 is added in R)
-    add_intercept = True
-
-    # Add "main effect" for each numeric expression
-    add_main_effects = False
-
-    # Aliases for intercept
-    aliases_for_intercept = [1, 'constant', '(Intercept)']
     """
     Instantiated with a dictionary: dict([(expr, ((factor1, factor2), (factor1,)))]).
 
@@ -45,42 +37,62 @@ class ANCOVA(object):
 
     """
 
-    def __init__(self, expr_factor_dict, 
-                 add_intercept=True,
-                 add_main_effects=False,
-                 aliases_for_intercept=[1, 'constant', '(Intercept)']):
-        self.expr_factor_dict = {}
+    add_intercept=True
+    add_main_effects=False
+    aliases_for_intercept=[1, 'constant', '(Intercept)']
 
-        # create a copy of expr_factor_dict
+    def __init__(self, *expr_factor_tuples):
+        self.graded_dict = {}
+
+        # create a copy of graded_dict
         # removing duplicate tuples of factors in the values
-        for expr in expr_factor_dict:
-            self.expr_factor_dict[expr] = []
-            for sequence_of_factors in expr_factor_dict[expr]:
-                if list(sequence_of_factors) not in self.expr_factor_dict[expr]:
-                    self.expr_factor_dict[expr].append(list(sequence_of_factors))
+        for expr_factors in expr_factor_tuples:
+            # each element of the sequence should have the form
+            # (sympy, [factors]) or sympy
+            try:
+                expr, factors = tuple(expr_factors)
+            except TypeError: # not a sequence
+                expr, factors = expr_factors, ()
+
+            if is_factor(factors):
+                factors = [factors]
+            factors = tuple(factors)
+            self.graded_dict.setdefault(expr, {}).setdefault(len(factors), []).append(factors)
+
+            ## for sequence_of_factors in graded_dict[expr]:
+            ##     if list(sequence_of_factors) not in self.graded_dict[expr]:
+            ##         self.graded_dict[expr].append(list(sequence_of_factors))
 
         # aliases for the intercept
 
-        for s in aliases_for_intercept:
-            if s in self.expr_factor_dict:
-                self.expr_factor_dict[sympy.Number(1)] = list(self.expr_factor_dict[s])
-                del(self.expr_factor_dict[s])
+        for s in ANCOVA.aliases_for_intercept:
+            if s in self.graded_dict:
+                for k in self.graded_dict[s].keys():
+                    self.graded_dict.setdefault(sympy.Number(1), {}).setdefault(k, []).extend(self.graded_dict[s][k])
+                del(self.graded_dict[s])
 
         # This is here because (()) == ()
         # so to specify a numeric variable 'x' with no categorical variables
         # we need an entry like {'x':(())} or {'x':[()]} or {'x':[None]}
-        for expr in self.expr_factor_dict:
-            if not self.expr_factor_dict[expr]:
-                self.expr_factor_dict[expr] = [()]
+        ## for expr in self.graded_dict:
+        ##     if not self.graded_dict[expr]:
+        ##         self.graded_dict[expr] = [()]
 
-        if add_intercept:
-            self.expr_factor_dict.setdefault(sympy.Number(1), []).append([])
+        if ANCOVA.add_intercept:
+            self.graded_dict.setdefault(sympy.Number(1), {})[0] = [[]]
 
-        if add_main_effects:
-            for expr in self.expr_factor_dict:
-                if () not in [tuple(f) for f in self.expr_factor_dict[expr]]:
-                    self.expr_factor_dict[expr] = list(self.expr_factor_dict[expr]) + [()]
-                
+        if ANCOVA.add_main_effects:
+            for expr in self.graded_dict:
+                self.graded_dict[expr][0] = [[]] 
+
+    def __repr__(self):
+        terms = []
+        for expr in self.graded_dict:
+            for order in self.graded_dict[expr]:
+                for factors in self.graded_dict[expr][order]:
+                    terms.append(`(expr, tuple([f.name for f in factors]))`)
+
+        return "ANCOVA(%s)" % ','.join(terms)
 
     @property
     def sorted_factors(self):
@@ -93,11 +105,12 @@ class ANCOVA(object):
         """
         if not hasattr(self, "_sorted_factors"):
             self._sorted_factors = {}
-            for expr in self.expr_factor_dict:
-                for factors in self.expr_factor_dict[expr]:
-                    for factor in factors:
-                        if is_factor(factor) and factor.name not in self._sorted_factors:
-                            self._sorted_factors[factor.name] = Factor(factor.name, sorted(factor.levels))
+            for expr in self.graded_dict:
+                for order in self.graded_dict[expr]:
+                    for factors in self.graded_dict[expr][order]:
+                        for factor in factors:
+                            if is_factor(factor) and factor.name not in self._sorted_factors:
+                                self._sorted_factors[factor.name] = Factor(factor.name, sorted(factor.levels))
         return self._sorted_factors
 
     @property
@@ -108,8 +121,8 @@ class ANCOVA(object):
         """
         if not hasattr(self, "_codings"):
             self._codings = {}
-            for expr in sorted(self.expr_factor_dict):
-                self._codings[expr] = get_factor_codings(self.expr_factor_dict[expr])
+            for expr in sorted(self.graded_dict.keys()):
+                self._codings[expr] = get_factor_codings(self.graded_dict[expr])
         return self._codings
 
     @property
@@ -124,8 +137,8 @@ class ANCOVA(object):
             self._contrasts = {}
             self._contrast_reps = []
             self._formulae = []
-            for expr in sorted(self.expr_factor_dict.keys()):
-                formulae = get_contributions(self.expr_factor_dict[expr],
+            for expr in sorted(self.graded_dict.keys()):
+                formulae = get_contributions(self.codings[expr],
                                              self.sorted_factors)
                 for formula, srep in formulae:
                     v = formula * Formula([expr])
@@ -181,17 +194,19 @@ class ANCOVA(object):
         """
 
         results = []
-        for expr in self.expr_factor_dict:
+        for expr in self.graded_dict:
             _expr = str(expr).replace("*", ":")
             if _expr != '1':
-                for factors in self.expr_factor_dict[expr]:
-                    results.append(':'.join([_expr] + [f.name for f in factors]))
+                for order in self.graded_dict[expr]:
+                    for factors in self.graded_dict[expr][order]:
+                        results.append(':'.join([_expr] + [f.name for f in factors]))
             else:
-                for factors in self.expr_factor_dict[expr]:
-                    if factors:
-                        results.append(':'.join([f.name for f in factors]))
-                    else:
-                        results.append('1')
+                for order in self.graded_dict[expr]:
+                    for factors in self.graded_dict[expr][order]:
+                        if factors:
+                            results.append(':'.join([f.name for f in factors]))
+                        else:
+                            results.append('1')
         return "+".join(results)
 
     @property
@@ -225,13 +240,13 @@ class ANCOVA(object):
         Create a new ANCOVA with each
         existing factor multiplied by factor.
         """
-        expr_factor_dict = self.expr_factor_dict.copy()
-        for expr in expr_factor_dict:
+        graded_dict = self.graded_dict.copy()
+        for expr in graded_dict:
             result = []
-            for factors in expr_factor_dict[expr]:
+            for factors in graded_dict[expr]:
                 result.append(list(factors) + [factor])
-            expr_factor_dict[expr] = result
-        return ANCOVA(expr_factor_dict)
+            graded_dict[expr] = result
+        return ANCOVA(graded_dict)
 
     def multiply_by_expression(self, expr):
         """
@@ -239,17 +254,16 @@ class ANCOVA(object):
         existing expression multiplied by
         expr.
         """
-        expr_factor_dict = {}
-        for expr in self.expr_factor_dict:
-            expr_factor_dict[expr * expr] = self.expr_factor_dict[expr]
-        return ANCOVA(expr_factor_dict)
+        graded_dict = {}
+        for expr in self.graded_dict:
+            graded_dict[expr * expr] = self.graded_dict[expr]
+        return ANCOVA(graded_dict)
 
 
-def get_contributions(subsets_of_factors, sorted_factors):
+def get_contributions(codings, sorted_factors):
     """
     Determine which columns a subset of factors
     """
-    codings = get_factor_codings(subsets_of_factors)
     if codings:
         formulae = []
         for prod_of_factors in codings:
@@ -264,7 +278,7 @@ def get_contributions(subsets_of_factors, sorted_factors):
         formulae = [(Formula([1]),'1')]
     return formulae
 
-def get_factor_codings(subsets_of_factors):
+def get_factor_codings(graded_subsets_of_factors):
     """
     Given a sequence of subsets of factors, determine
     which will be coded with all their degrees of freedom ("indicator")
@@ -272,19 +286,12 @@ def get_factor_codings(subsets_of_factors):
     """
     formula = Formula([])
     all_factors = set([])
-    subsets_of_names = {}
+    graded_subsets_of_names = []
 
-    for subset_of_factors in subsets_of_factors:
-        all_factors = all_factors.union(set(subset_of_factors))
-        t = [f.name for f in subset_of_factors]
-        subsets_of_names.setdefault(len(t), []).append(t)
-
-    if subsets_of_names and all_factors:
-        # R uses the sorted levels as well
-        graded_subsets_of_names = []
-        for i in sorted(subsets_of_names.keys()):
-            graded_subsets_of_names += subsets_of_names[i]
-
+    for order in graded_subsets_of_factors:
+        graded_subsets_of_names.extend([sorted([f.name for f in factors]) for
+                                          factors in graded_subsets_of_factors[order]])
+    if graded_subsets_of_names != [[]]:
         codings = factor_codings(*[sorted(f) for f in graded_subsets_of_names])
     else:
         codings = {}
