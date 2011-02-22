@@ -1,27 +1,29 @@
 import numpy as np
 import sympy
 from formula import Formula, I
-from terms import Factor, is_term, is_factor
+from terms import Factor, is_term, is_factor, Term # Term for docstrings
 from utils import factor_codings
-
 
 
 class ANCOVA(object):
 
     """
-    Instantiated with a dictionary: dict([(expr, ((factor1, factor2), (factor1,)))]).
+    Instantiated with a sequence of (expr, [factor]) tuples.
+    If there are no factors, entries can be of the form "expr".
+    Similarly, if there is just one factor, entries of the
+    sequence can be of the form (expr, factor).
 
     >>> e = Factor('E', ['B', 'M', 'P']) # "B": bachelors, "M":masters, "P":phd
     >>> p = Factor('P', ['M', 'L']) # "M":management, "L":labor
     >>> x = Term('X')
-    >>> f = ANCOVA({x:[(e,),(p,)]})
+    >>> f = ANCOVA((x,e),(x,p))
     >>> f.formula
     Formula([1, P_M*X, E_B*X, E_M*X, E_P*X])
 
     The resulting formula depends on the order of the factors
     in the specification (as it does in R).
 
-    >>> f2 = ANCOVA({x:[(e,),(p,)]})
+    >>> f2 = ANCOVA((x,p),(x,e))
     >>> f2.formula
     Formula([1, P_M*X, E_B*X, E_M*X, E_P*X])
     >>> 
@@ -30,10 +32,9 @@ class ANCOVA(object):
     of the factor (as it does in R).
 
     >>> e2 = Factor('E', ['P', 'M', 'B'])
-    >>> f = ANCOVA({x:[(p,),(e2,)]})
+    >>> f = ANCOVA((x,p),(x,e2))
     >>> f.formula
     Formula([1, P_M*X, P_L*X, E_M*X, E_P*X])
-
 
     """
 
@@ -48,7 +49,7 @@ class ANCOVA(object):
         # removing duplicate tuples of factors in the values
         for expr_factors in expr_factor_tuples:
             # each element of the sequence should have the form
-            # (sympy, [factors]) or sympy
+            # (sympy, [factors]) or sympy or (sympy, factor)
             try:
                 expr, factors = tuple(expr_factors)
             except TypeError: # not a sequence
@@ -59,10 +60,6 @@ class ANCOVA(object):
             factors = tuple(factors)
             self.graded_dict.setdefault(expr, {}).setdefault(len(factors), []).append(factors)
 
-            ## for sequence_of_factors in graded_dict[expr]:
-            ##     if list(sequence_of_factors) not in self.graded_dict[expr]:
-            ##         self.graded_dict[expr].append(list(sequence_of_factors))
-
         # aliases for the intercept
 
         for s in ANCOVA.aliases_for_intercept:
@@ -70,13 +67,6 @@ class ANCOVA(object):
                 for k in self.graded_dict[s].keys():
                     self.graded_dict.setdefault(sympy.Number(1), {}).setdefault(k, []).extend(self.graded_dict[s][k])
                 del(self.graded_dict[s])
-
-        # This is here because (()) == ()
-        # so to specify a numeric variable 'x' with no categorical variables
-        # we need an entry like {'x':(())} or {'x':[()]} or {'x':[None]}
-        ## for expr in self.graded_dict:
-        ##     if not self.graded_dict[expr]:
-        ##         self.graded_dict[expr] = [()]
 
         if ANCOVA.add_intercept:
             self.graded_dict.setdefault(sympy.Number(1), {})[0] = [[]]
@@ -102,6 +92,25 @@ class ANCOVA(object):
         this is the column that is dropped when
         constructing a design in which this factor
         is to be coded as "contrast".
+
+        >>> x = Term('x'); f = Factor('f', [2,1,3]) ; h =Factor('h', range(2))
+        >>> a = ANCOVA((x,f), (x,(f,h)))
+        >>> a.sorted_factors
+        {'h': Factor('h', [0, 1]), 'f': Factor('f', [1, 2, 3])}
+        >>>
+
+        The ordering of the levels of the factors
+        changes which columns are produced when
+        a factor is coded as a contrast.
+
+        >> x = Term('x'); f = Factor('f', [2,1,3]) ; h =Factor('h', range(2))
+        >>> a = ANCOVA((x,h), (x,(f,h)))
+
+        In this example, in the "x:f:h" term, "f" is coded
+        as a contrast and its "first" level is dropped. This
+        is the "first" of the sorted levels of "f".
+        
+
         """
         if not hasattr(self, "_sorted_factors"):
             self._sorted_factors = {}
@@ -118,6 +127,12 @@ class ANCOVA(object):
         """
         Return R's interpretation of how each (expr, [factors])
         instance in the Formula should be coded.
+
+        >>> x = Term('x'); f = Factor('f', range(3)) ; h =Factor('h', range(2))
+        >>> a = ANCOVA((x,f), (x,(f,h)))
+        >>> a.codings
+        {1: {}, x: {('f',): [('f', 'indicator')], ('f', 'h'): [('f', 'indicator'), ('h', 'contrast')]}}
+
         """
         if not hasattr(self, "_codings"):
             self._codings = {}
@@ -132,6 +147,12 @@ class ANCOVA(object):
         The order is determined by the sorted order of 
         numerical terms in the ANCOVA.
         Each numerical term yields several 
+
+        >>> x = Term('x'); f = Factor('f', [2,1,3]) ; h =Factor('h', range(2))
+        >>> a = ANCOVA((x,f), (x,(f,h)))
+        >>> a.contrasts
+        {'I(x):f': Formula([f_1*x, f_3*x, f_2*x]), 'I(1):1': Formula([1]), 'I(x):f:h': Formula([f_2*h_1*x, f_1*h_1*x, f_3*h_1*x])}
+
         """
         if not hasattr(self, "_contrasts"):
             self._contrasts = {}
@@ -154,6 +175,16 @@ class ANCOVA(object):
 
     @property
     def slices(self):
+        """
+        The column slices for corresponding contrast matrices.
+        See the docstring of `ANCOVA.contrast_matrices`.
+
+        >>> x = Term('x'); f = Factor('f', [2,1,3]) ; h =Factor('h', range(2))
+        >>> a = ANCOVA((x,f), (x,(f,h)))
+        >>> a.slices['I(x):f']
+        slice(1, 4, None)
+
+        """
         if not hasattr(self, '_formulae'):
             self.contrasts
         idx = 0
@@ -166,6 +197,34 @@ class ANCOVA(object):
 
     @property
     def contrast_matrices(self):
+        """
+        Return the canonical contrast matrices of the ANCOVA.
+        The order is determined by the sorted order of 
+        numerical terms in the ANCOVA.
+        Each numerical term yields several contrasts.
+
+        >>> x = Term('x'); f = Factor('f', [2,1,3]) ; h =Factor('h', range(2))
+        >>> a = ANCOVA((x,f), (x,(f,h)))
+
+        >>> a.contrast_matrices['I(x):f']
+
+        array([[ 0.,  1.,  0.,  0.,  0.,  0.,  0.],
+               [ 0.,  0.,  1.,  0.,  0.,  0.,  0.],
+               [ 0.,  0.,  0.,  1.,  0.,  0.,  0.]])
+
+
+        Note
+        ====
+
+        Not all contrasts are estimable depending on the design
+        matrix. Hence, when these contrasts are used to compute F-statistics
+        the actual "degrees of freedom" of the F-statistic depends on
+        the projection of the rows of the contrast matrices onto the
+        row space of the design matrix. Consistent contrast matrices
+        can be found using `formula.utils.contrast_from_cols_or_rows`
+                                                                    
+        """
+        
         p = len(self.formula.terms)
         matrices = {}
         for crep in self._contrast_reps:
@@ -180,7 +239,14 @@ class ANCOVA(object):
     @property
     def formulae(self):
         """
-        Return the canonical formulae
+        Return the canonical formulae, one for each item
+        in self.sequence
+
+        >>> x = Term('x'); f = Factor('f', [2,1,3]) ; h =Factor('h', range(2))
+        >>> a = ANCOVA((x,f), (x,(f,h)))
+        >>> a.formulae
+        [Formula([1]), Formula([f_1*x, f_3*x, f_2*x]), Formula([f_2*h_1*x, f_1*h_1*x, f_3*h_1*x])]
+
         """
         if not hasattr(self, '_formulae'):
             self.contrasts
@@ -191,6 +257,13 @@ class ANCOVA(object):
         """
         Right-hand side for a formula in R. Any "*" in the
         sympy expressions are replaced with ":".
+
+        >>> x = Term('x'); f = Factor('f', [2,1,3]) ; h =Factor('h', range(2))
+        >>> a = ANCOVA((x,f), (x,(f,h)))
+        >>> a.Rstr
+        '1+x:f+x:f:h'
+        >>>
+
         """
 
         results = []
@@ -210,24 +283,60 @@ class ANCOVA(object):
         return "+".join(results)
 
     @property
+    def sequence(self):
+        """
+        A sequence that can be used to construct an equivalent model.
+
+        >>> x = Term('x'); f = Factor('f', range(3)) ; h =Factor('h', range(2))
+        >>> i = Factor('i', range(3))
+        >>> a = ANCOVA((x,f), (x,(f,h)),(x,(i,h)))
+        >>> a.sequence
+        [(1, []), (x, (Factor('f', [0, 1, 2]),)), (x, (Factor('f', [0, 1, 2]), Factor('h', [0, 1]))), (x, (Factor('i', [0, 1, 2]), Factor('h', [0, 1])))]
+
+        """
+        result = []
+        for expr in self.graded_dict:
+            for order in self.graded_dict[expr]:
+                for factors in self.graded_dict[expr][order]:
+                    result.append((expr, factors))
+        return result
+    
+    @property
     def formula(self):
         """
         Create a Formula using R's rules for
         coding factors. 
 
-        If add_intercepts is True,
-        then, a "1" is added to the entire expression in R,
-        and each sympy expression,s, also appears as 1*s.
 
-        If add_intercepts is False,
-        build a Formula strictly from the terms given.
-     
+        >>> x = Term('x'); f = Factor('f', range(3)) ; h =Factor('h', range(2))
+        >>> a=ANCOVA((x,f), (x,(f,h)))
+        >>> a.formula
+        Formula([f_0*x, f_1*h_1*x, f_2*x, 1, f_0*h_1*x, f_1*x, f_2*h_1*x])
+        >>>
+
         """
 
         f = self.formulae[0]
         for ff in self.formulae[1:]:
             f = f + ff
         return f.delete_terms(Formula([0]))
+
+    # Methods
+
+    def delete_terms(self, *terms):
+        """
+        >>> x = Term('x'); f = Factor('f', range(3)) ; h =Factor('h', range(2))
+        >>> a=ANCOVA((x,f), (x,(f,h)))
+        >>> a
+        ANCOVA((1, ()),(x, ('f',)),(x, ('f', 'h')))
+        >>> a.delete_terms((x,f))
+        ANCOVA((1, ()),(x, ('f', 'h')))
+
+        """
+        result = self.sequence
+        for term in ANCOVA(*terms).sequence:
+            result.remove(term)
+        return ANCOVA(*result)
 
     def __mul__(self, other):
         if is_factor(other):
