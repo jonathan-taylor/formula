@@ -2,7 +2,7 @@ import numpy as np
 import sympy
 from formula import Formula, I
 from terms import Factor, is_term, is_factor, Term # Term for docstrings
-from utils import factor_codings
+from utils import factor_codings, simplicial_complex
 
 
 class ANCOVA(object):
@@ -58,7 +58,7 @@ class ANCOVA(object):
             if is_factor(factors):
                 factors = [factors]
             factors = tuple(factors)
-            self.graded_dict.setdefault(expr, {}).setdefault(len(factors), []).append(factors)
+            self.graded_dict.setdefault(sympy.sympify(expr), {}).setdefault(len(factors), []).append(factors)
 
         # aliases for the intercept
 
@@ -69,11 +69,11 @@ class ANCOVA(object):
                 del(self.graded_dict[s])
 
         if ANCOVA.add_intercept:
-            self.graded_dict.setdefault(sympy.Number(1), {})[0] = [[]]
+            self.graded_dict.setdefault(sympy.Number(1), {})[0] = [()]
 
         if ANCOVA.add_main_effects:
             for expr in self.graded_dict:
-                self.graded_dict[expr][0] = [[]] 
+                self.graded_dict[expr][0] = [()] 
 
     def __repr__(self):
         terms = []
@@ -163,11 +163,16 @@ class ANCOVA(object):
                                              self.sorted_factors)
                 for formula, srep in formulae:
                     v = formula * Formula([expr])
-                    sexpr = "I(%s)" % str(expr)
-                    if srep:
-                        crep = ':'.join([sexpr,srep])
+                    if str(expr) != '1':
+                        sexpr = "I(%s)" % str(expr)
+                        if srep and srep != '1':
+                            crep = ':'.join([sexpr,srep])
+                        else:
+                            crep = sexpr
+                    elif srep:
+                        crep = ':'.join([srep])
                     else:
-                        crep = sexpr
+                        crep = '1'
                     self._contrasts[crep] = v
                     self._contrast_reps.append(crep)
                     self._formulae.append(v)
@@ -240,7 +245,7 @@ class ANCOVA(object):
     def formulae(self):
         """
         Return the canonical formulae, one for each item
-        in self.sequence
+        in self.sequence()
 
         >>> x = Term('x'); f = Factor('f', [2,1,3]) ; h =Factor('h', range(2))
         >>> a = ANCOVA((x,f), (x,(f,h)))
@@ -261,41 +266,47 @@ class ANCOVA(object):
         >>> x = Term('x'); f = Factor('f', [2,1,3]) ; h =Factor('h', range(2))
         >>> a = ANCOVA((x,f), (x,(f,h)))
         >>> a.Rstr
-        '1+x:f+x:f:h'
+        '1+I(x):f+I(x):f:h'
         >>>
 
         """
 
-        results = []
-        for expr in self.graded_dict:
-            _expr = str(expr).replace("*", ":")
-            if _expr != '1':
-                for order in self.graded_dict[expr]:
-                    for factors in self.graded_dict[expr][order]:
-                        results.append(':'.join([_expr] + [f.name for f in factors]))
-            else:
-                for order in self.graded_dict[expr]:
-                    for factors in self.graded_dict[expr][order]:
-                        if factors:
-                            results.append(':'.join([f.name for f in factors]))
-                        else:
-                            results.append('1')
-        return "+".join(results)
+        if not hasattr(self, '_contrast_reps'):
+            self.contrasts
+        return '+'.join(self._contrast_reps)
+        ## results = []
+        ## for expr in self.graded_dict:
+        ##     if str(expr) != 1:
+        ##         _expr = "I(%s)" % str(expr)
+        ##         for order in self.graded_dict[expr]:
+        ##             for factors in self.graded_dict[expr][order]:
+        ##                 results.append(':'.join([_expr] + [f.name for f in factors]))
+        ##     else:
+        ##         for order in self.graded_dict[expr]:
+        ##             for factors in self.graded_dict[expr][order]:
+        ##                 if factors:
+        ##                     results.append(':'.join([f.name for f in factors]))
+        ##                 else:
+        ##                     results.append('1')
+        ## return "+".join(results)
 
-    @property
-    def sequence(self):
+    def sequence(self, expr=None):
         """
         A sequence that can be used to construct an equivalent model.
 
         >>> x = Term('x'); f = Factor('f', range(3)) ; h =Factor('h', range(2))
         >>> i = Factor('i', range(3))
         >>> a = ANCOVA((x,f), (x,(f,h)),(x,(i,h)))
-        >>> a.sequence
+        >>> a.sequence()
         [(1, []), (x, (Factor('f', [0, 1, 2]),)), (x, (Factor('f', [0, 1, 2]), Factor('h', [0, 1]))), (x, (Factor('i', [0, 1, 2]), Factor('h', [0, 1])))]
 
         """
         result = []
-        for expr in self.graded_dict:
+        if expr is None:
+            exprs = sorted(self.graded_dict.keys())
+        else:
+            exprs = [sympy.sympify(expr)]
+        for expr in exprs:
             for order in self.graded_dict[expr]:
                 for factors in self.graded_dict[expr][order]:
                     result.append((expr, factors))
@@ -333,8 +344,8 @@ class ANCOVA(object):
         ANCOVA((1, ()),(x, ('f', 'h')))
 
         """
-        result = self.sequence
-        for term in ANCOVA(*terms).sequence:
+        result = self.sequence()
+        for term in ANCOVA(*terms).sequence():
             result.remove(term)
         return ANCOVA(*result)
 
@@ -405,3 +416,15 @@ def get_factor_codings(graded_subsets_of_factors):
     else:
         codings = {}
     return codings
+
+def maximal(ancova):
+    """
+    Return an ANCOVA formula with only the maximal elements
+    for each expression. 
+    """
+    result = []
+    for expr in ancova.graded_dict:
+        maximal = simplicial_complex(*[s for _, s in ancova.sequence(expr)])[1]
+        for m in maximal:
+            result.append((expr, m))
+    return ANCOVA(*result)

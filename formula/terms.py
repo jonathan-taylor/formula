@@ -58,7 +58,7 @@ class FactorTerm(Term):
             return sympy.Symbol.__mul__(self, other)
 
 class Beta(sympy.symbol.Dummy):
-    ''' A symbol tied to a Term `term` '''
+    ''' A dummy symbol tied to a Term `term` '''
     _beta_flag = True
 
     def __new__(cls, name, term):
@@ -159,7 +159,7 @@ class Factor(object):
         Returns
         -------
         formula : Formula
-            Formula whose mean has one parameter named variable%d, for each
+            Formula whose mean has one parameter named _variable%d, for each
             level in self.levels
         
         Examples
@@ -173,7 +173,7 @@ class Factor(object):
                                            uppercase + '0123456789'):
             raise ValueError('variable should be interpretable as a '
                              'name and not have anything but digits '
-                             'and numbers')
+                             'and letters')
         variable = sympy.sympify(variable)
         f = Formula(self.formula.terms, char=variable)
         f.name = self.name
