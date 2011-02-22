@@ -29,10 +29,10 @@ The order of the two terms above matters
 
 .. testsetup::
 
-   from formula.CategoricalFormula import CategoricalFormula
+   from formula.ancova import ANCOVA
    from formula.terms import Term, Factor
 
-We can recreate this example using the *CategoricalFormula* object
+We can recreate this example using the *ANCOVA* object
 
 .. testcode::
 
@@ -40,7 +40,7 @@ We can recreate this example using the *CategoricalFormula* object
    p = Factor('P', ['M', 'L'])
    x = Term("X")
 
-   f = CategoricalFormula({x:[(e,),(p,)]})
+   f = ANCOVA({x:[(e,),(p,)]})
    print sorted(f.formula.terms)
 
 This would output:
@@ -53,7 +53,7 @@ Interchanging the order above
 
 .. testcode::
 
-   f2 = CategoricalFormula({x:[(p,),(e,)]})
+   f2 = ANCOVA({x:[(p,),(e,)]})
    print sorted(f2.formula.terms)
 
 .. testoutput::
@@ -74,9 +74,9 @@ can be coded either as in *indicator* which
 includes all relevant dummy variables for the
 factor or as a *contrast* which includes one less
 column. The default behavior of *R* is to drop a term,
-which *CategoricalFormula* also follows. *R* drops
+which *ANCOVA* also follows. *R* drops
 the first term in a sorted list of the levels of the factor,
-*CategoricalFormula* follows the same behavior by default.
+*ANCOVA* follows the same behavior by default.
 
 For instance:
 
@@ -105,11 +105,11 @@ We can also specify two-way interactions in *R*
 
    print(coef(lm(S ~ X:E:P, data=data)))
 
-As well as in the *CategoricalFormula*
+As well as in the *ANCOVA*
 
 .. testcode::
 
-   f3 = CategoricalFormula({x:[(p,e)]})
+   f3 = ANCOVA({x:[(p,e)]})
    print f3.codings
    print sorted(f3.formula.terms)
 
@@ -129,7 +129,7 @@ predict:
 
 .. testcode::
 
-   f4 = CategoricalFormula({x:[(p,e),(p,),(e,)]})
+   f4 = ANCOVA({x:[(p,e),(p,),(e,)]})
    print f4.codings
    print sorted(f4.formula.terms)
 
@@ -147,7 +147,7 @@ formula
 
 .. testcode::
 
-   f5 = CategoricalFormula({x:[(p,e),(e,),(p,)]})
+   f5 = ANCOVA({x:[(p,e),(e,),(p,)]})
    print f5.codings
    print sorted(f5.formula.terms)
 
@@ -175,7 +175,7 @@ by
 
 .. testcode::
 
-   f6 = CategoricalFormula({x:[(), (p,e),(e,),(p,)]})
+   f6 = ANCOVA({x:[(), (p,e),(e,),(p,)]})
    print f6.codings
    print sorted(f6.formula.terms)
 
@@ -191,11 +191,11 @@ Intercept
 
 The ubiquitous intercept can be suppressed using
 the keyword argument "add_intercept" to the
-constructor of CategoricalFormula
+constructor of ANCOVA
 
 .. testcode::
 
-   f7 = CategoricalFormula({x:[(), (p,e),(e,),(p,)]}, add_intercept=False)
+   f7 = ANCOVA({x:[(), (p,e),(e,),(p,)]}, add_intercept=False)
    print f7.codings
    print sorted(f7.formula.terms)
 
@@ -213,20 +213,20 @@ to the string specifying the formula:
 
    print(coef(lm(S ~ X + X:E:P + X:E + X:P - 1, data=data)))
 
-This is not quite the same as obtained by *CategoricalFormula* and 
+This is not quite the same as obtained by *ANCOVA* and 
 this is related to *R*'s treatment of factors and numeric variables
-as equal. The *CategoricalFormula* makes a distinction
+as equal. The *ANCOVA* makes a distinction
 between these two.
 
 Contrasts
 ~~~~~~~~~
 
-Each *(expr, factor)* pair in the *CategoricalFormula* specification
+Each *(expr, factor)* pair in the *ANCOVA* specification
 maps to a specific contrast.
 
 .. testcode::
 
-   f7 = CategoricalFormula({x:[(), (p,e),(e,),(p,)]}, add_intercept=False)
+   f7 = ANCOVA({x:[(), (p,e),(e,),(p,)]}, add_intercept=False)
    print f7.contrasts
 
 .. testoutput::
@@ -240,7 +240,7 @@ As opposed to
 
 .. testcode::
 
-   f3 = CategoricalFormula({x:[(p,e)]})
+   f3 = ANCOVA({x:[(p,e)]})
    print f3.contrasts
 
 which yields
@@ -259,7 +259,7 @@ of the *formula* attribute
 
 .. testcode::
 
-   f3 = CategoricalFormula({x:[(p,e)]})
+   f3 = ANCOVA({x:[(p,e)]})
    print f3.slices
 
 which yields
@@ -275,7 +275,7 @@ The slices can be interpreted as contrast matrices
 
 .. testcode::
 
-   f3 = CategoricalFormula({x:[(p,e)]})
+   f3 = ANCOVA({x:[(p,e)]})
    print f3.slices
 
 yielding

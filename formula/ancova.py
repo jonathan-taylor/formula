@@ -6,7 +6,7 @@ from utils import factor_codings
 
 
 
-class CategoricalFormula(object):
+class ANCOVA(object):
 
     # Add a global intercept as R does (unless -1 is added in R)
     add_intercept = True
@@ -22,14 +22,14 @@ class CategoricalFormula(object):
     >>> e = Factor('E', ['B', 'M', 'P']) # "B": bachelors, "M":masters, "P":phd
     >>> p = Factor('P', ['M', 'L']) # "M":management, "L":labor
     >>> x = Term('X')
-    >>> f = CategoricalFormula({x:[(e,),(p,)]})
+    >>> f = ANCOVA({x:[(e,),(p,)]})
     >>> f.formula
     Formula([1, P_M*X, E_B*X, E_M*X, E_P*X])
 
     The resulting formula depends on the order of the factors
     in the specification (as it does in R).
 
-    >>> f2 = CategoricalFormula({x:[(e,),(p,)]})
+    >>> f2 = ANCOVA({x:[(e,),(p,)]})
     >>> f2.formula
     Formula([1, P_M*X, E_B*X, E_M*X, E_P*X])
     >>> 
@@ -38,7 +38,7 @@ class CategoricalFormula(object):
     of the factor (as it does in R).
 
     >>> e2 = Factor('E', ['P', 'M', 'B'])
-    >>> f = CategoricalFormula({x:[(p,),(e2,)]})
+    >>> f = ANCOVA({x:[(p,),(e2,)]})
     >>> f.formula
     Formula([1, P_M*X, P_L*X, E_M*X, E_P*X])
 
@@ -115,9 +115,9 @@ class CategoricalFormula(object):
     @property
     def contrasts(self):
         """
-        Return the canonical contrasts of the CategoricalFormula.
+        Return the canonical contrasts of the ANCOVA.
         The order is determined by the sorted order of 
-        numerical terms in the CategoricalFormula.
+        numerical terms in the ANCOVA.
         Each numerical term yields several 
         """
         if not hasattr(self, "_contrasts"):
@@ -222,7 +222,7 @@ class CategoricalFormula(object):
 
     def multiply_by_factor(self, factor):
         """
-        Create a new CategoricalFormula with each
+        Create a new ANCOVA with each
         existing factor multiplied by factor.
         """
         expr_factor_dict = self.expr_factor_dict.copy()
@@ -231,18 +231,18 @@ class CategoricalFormula(object):
             for factors in expr_factor_dict[expr]:
                 result.append(list(factors) + [factor])
             expr_factor_dict[expr] = result
-        return CategoricalFormula(expr_factor_dict)
+        return ANCOVA(expr_factor_dict)
 
     def multiply_by_expression(self, expr):
         """
-        Create a new CategoricalFormula with each
+        Create a new ANCOVA with each
         existing expression multiplied by
         expr.
         """
         expr_factor_dict = {}
         for expr in self.expr_factor_dict:
             expr_factor_dict[expr * expr] = self.expr_factor_dict[expr]
-        return CategoricalFormula(expr_factor_dict)
+        return ANCOVA(expr_factor_dict)
 
 
 def get_contributions(subsets_of_factors, sorted_factors):

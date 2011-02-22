@@ -8,7 +8,7 @@ import nose.tools as nt
 
 from os import remove
 from formula.terms import Term, Factor
-from formula.categorical import CategoricalFormula
+from formula.ancova import ANCOVA
 import matplotlib.mlab as ML
 import tempfile, rpy2.robjects
 
@@ -40,7 +40,7 @@ def random_categorical_formula(size=500):
             factors = random_subset(c, np.random.poisson(1))
             f.append(np.unique(factors))
         d[np.product(np.unique(expr))] = f
-    return CategoricalFormula(d)
+    return ANCOVA(d)
 
 def random_from_factor(factor, size):
     return random_subset(factor.levels, size)
@@ -73,7 +73,7 @@ def simple():
     f = Factor('f', ['a','b','c'])
     g = Factor('g', ['aa','bb','cc'])
     h = Factor('h', ['a','b','c','d','e','f','g','h','i','j'])
-    d = CategoricalFormula({x*y:((g,f),),x:([f],[g,f]),
+    d = ANCOVA({x*y:((g,f),),x:([f],[g,f]),
                             1:([g],),
                             z:([h],[h,g,f]),
                             x*y*z:([h],[f])})
@@ -86,7 +86,7 @@ def simple2():
     f = Factor('f', ['a','b','c'])
     g = Factor('g', ['aa','bb','cc'])
     h = Factor('h', ['a','b','c','d','e','f','g','h','i','j'])
-    d = CategoricalFormula({x*y:((g,f),),x:([f],[g,f]),
+    d = ANCOVA({x*y:((g,f),),x:([f],[g,f]),
                             1:([g],),
                             z:([h],[h,g,f]),
                             x*y*z:([f],[h])})
