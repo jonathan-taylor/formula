@@ -57,15 +57,6 @@ class FactorTerm(Term):
         else:
             return sympy.Symbol.__mul__(self, other)
 
-class Beta(sympy.symbol.Dummy):
-    ''' A dummy symbol tied to a Term `term` '''
-    _beta_flag = True
-
-    def __new__(cls, name, term):
-        new = sympy.symbol.Dummy.__new__(cls, name)
-        new._term = term
-        return new
-
 class Factor(object):
     """ A qualitative variable in a regression model
     
@@ -245,3 +236,17 @@ def is_factor(obj):
     """ Is obj a Formula?
     """
     return hasattr(obj, "_factor_flag")
+
+def fromrec(recarray):
+    """
+    Create a collection of Terms and Factors
+    from a recarray
+    """
+
+    result = {}
+    for n, d in recarray.dtype.descr:
+        if d[1] == 'S':
+            result[n] = Factor(n, np.unique(recarray[n]))
+        else:
+            result[n] = Term(n)
+    return result

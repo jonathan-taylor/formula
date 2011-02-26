@@ -113,6 +113,17 @@ import numpy as np
 
 from aliased import aliased_function, _add_aliases_to_namespace, vectorize
 
+
+class Beta(sympy.symbol.Dummy):
+    ''' A dummy symbol tied to a Term `term` '''
+    _beta_flag = True
+
+    def __new__(cls, name, term):
+        new = sympy.symbol.Dummy.__new__(cls, name)
+        new._term = term
+        return new
+
+
 class Formula(object):
     """ A Formula is a model for a mean in a regression model.
 
@@ -552,6 +563,17 @@ class Formula(object):
 # The intercept formula
 
 I = Formula([sympy.Number(1)])
+
+def is_term(obj):
+    """ Is obj a Term?
+    """
+    return hasattr(obj, "_term_flag")
+
+def is_factor_term(obj):
+    """ Is obj a FactorTerm?
+    """
+    return hasattr(obj, "_factor_term_flag")
+
 
 def is_formula(obj):
     """ Is obj a Formula?

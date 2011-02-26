@@ -4,6 +4,7 @@ from formula import Formula, I
 from terms import Factor, is_term, is_factor, Term # Term for docstrings
 from utils import factor_codings, simplicial_complex
 
+from scikits.statsmodels.regression import OLS
 
 class ANCOVA(object):
 
@@ -53,6 +54,9 @@ class ANCOVA(object):
         for expr_factors in expr_factor_tuples:
             # each element of the sequence should have the form
             # (sympy, [factors]) or sympy or (sympy, factor)
+            if is_factor(expr_factors):
+                expr_factors = (1, expr_factors)
+
             try:
                 expr, factors = tuple(expr_factors)
             except TypeError: # not a sequence
@@ -141,6 +145,21 @@ class ANCOVA(object):
         return self._codings
 
     @property
+    def contrast_strings(self):
+        """
+        Return the canonical order of the contrasts of the ANCOVA
+        formula that will be used, for instance, in type I sum
+        of squares.
+
+        The numeric variables are sorted, then within
+        each numeric, the graded order of the
+        factors is preserved.
+        """
+        if not hasattr(self, '_contrast_strings'):
+            self.contrasts
+        return self._contrast_strings
+
+    @property
     def contrasts(self):
         """
         Return the canonical contrasts of the ANCOVA.
@@ -156,7 +175,7 @@ class ANCOVA(object):
         """
         if not hasattr(self, "_contrasts"):
             self._contrasts = {}
-            self._contrast_reps = []
+            self._contrast_strings = []
             self._formulae = []
             for expr in sorted(self.graded_dict.keys()):
                 formulae = get_contributions(self.codings[expr],
@@ -174,7 +193,7 @@ class ANCOVA(object):
                     else:
                         crep = '1'
                     self._contrasts[crep] = v
-                    self._contrast_reps.append(crep)
+                    self._contrast_strings.append(crep)
                     self._formulae.append(v)
         return self._contrasts
 
@@ -194,7 +213,7 @@ class ANCOVA(object):
             self.contrasts
         idx = 0
         result = {}
-        for crep in self._contrast_reps:
+        for crep in self._contrast_strings:
             l = len(self.contrasts[crep].terms)
             result[crep] = slice(idx, idx + l)
             idx += l
@@ -232,7 +251,7 @@ class ANCOVA(object):
         
         p = len(self.formula.terms)
         matrices = {}
-        for crep in self._contrast_reps:
+        for crep in self._contrast_strings:
             s = self.slices[crep]
             l = s.stop - s.start
             array = np.zeros((l,p), np.float)
@@ -271,13 +290,16 @@ class ANCOVA(object):
 
         """
 
-        if not hasattr(self, '_contrast_reps'):
+        if not hasattr(self, '_contrast_strings'):
             self.contrasts
-        return '+'.join(self._contrast_reps)
+        return '+'.join(self.contrast_strings)
 
     def sequence(self, expr=None):
         """
-        A sequence that can be used to construct an equivalent model.
+        A sequence that can be used to construct an equivalent model
+        if expr is None. If expr is not None, then this
+        model is equivalent to the given model but only
+        has numeric terms matching expr.
 
         >>> x = Term('x'); f = Factor('f', range(3)) ; h =Factor('h', range(2))
         >>> i = Factor('i', range(3))
@@ -297,6 +319,28 @@ class ANCOVA(object):
                     result.append((expr, factors))
         return result
     
+    def all_but_above(self, expr, factors):
+        """
+        Create an ANCOVA for formula
+        that has all variables except everything
+        in self that is "greater" than (expr, factors).
+        That is, all pairings of (expr, factors) where
+        factors is not a superset of factors
+        as well as everything else in the model.
+
+        This is used in creating type II sums of squares tables.
+        """
+        sequence = []
+        for k in self.graded_dict:
+            if k != expr:
+                sequence += self.sequence(k)
+            else:
+                for order in self.graded_dict[k]:
+                    for fs in self.graded_dict[k][order]:
+                        if not set(fs).issuperset(factors):
+                            sequence.append((expr, fs))
+        return ANCOVA(*sequence)
+
     @property
     def formula(self):
         """
@@ -388,21 +432,24 @@ class ANCOVA(object):
             graded_dict[expr * expr] = self.graded_dict[expr]
         return ANCOVA(graded_dict)
 
-
 def get_contributions(codings, sorted_factors):
     """
     Determine which columns a subset of factors
     """
     if codings:
         formulae = []
+        lens = []
         for prod_of_factors in codings:
             cur_formula = I
             for n, c in codings[prod_of_factors]:
                 if c == 'indicator':
                     cur_formula = cur_formula * sorted_factors[n].formula
                 else:
-                    cur_formula = cur_formula * sorted_factors[n].drop_first
+                    cur_formula = cur_formula * sorted_factors[n].main_effect
+                    #cur_formula = cur_formula * sorted_factors[n].drop_first
             formulae.append((cur_formula, ':'.join(prod_of_factors)))
+            lens.append(len(prod_of_factors))
+        formulae = [s[1] for s in sorted(zip(lens, formulae))]
     else:
         formulae = [(Formula([1]),'1')]
     return formulae
@@ -466,3 +513,189 @@ def is_ancova(obj):
     """ Is obj an ANCOVA?
     """
     return hasattr(obj, "_ancova_flag")
+
+def typeIII(response, ancova, recarray):
+    """
+    Produce an ANCOVA table
+    with type III sum of squares
+    from a given ANCOVA formula.
+
+    Inputs
+    ------
+
+    response: str
+              field name of response in recarray
+
+    ancova: ANCOVA
+            specifies the model to be fit
+
+    recarray: np.ndarray
+              should contain all field names in the terms of ancova
+              as well as response
+    """
+
+    X = ancova.formula.design(recarray, return_float=True)
+    Y = recarray[response]
+    model = OLS(Y, X)
+
+    results = model.fit()
+    names = []
+    fs = []
+    dfs = []
+    sss = []
+    pvals = []
+    for contrast in ancova.contrast_strings:
+        r = results.f_test(ancova.contrast_matrices[contrast])
+        names.append(contrast)
+        fs.append(r.fvalue)
+        dfs.append(r.df_num)
+        pvals.append(r.pvalue)
+        sss.append(r.fvalue * results.scale * r.df_num)
+    result = np.array(names, np.dtype([('contrast','S%d' % max([len(n) for n in names]))]))
+    result = ML.rec_append_fields(result, ['SS', 'F', 'df', 'p_value'], [sss, fs, dfs, pvals])
+    return result
+
+def typeI(response, ancova, recarray):
+    """
+    Produce an ANCOVA table
+    from a given ANCOVA formula
+    with type I sums of squares
+    where the order is based on the order of terms
+    in the contrast_strings of ancova.
+
+    Inputs
+    ------
+
+    response: str
+              field name of response in recarray
+
+    ancova: ANCOVA
+            specifies the model to be fit
+
+    recarray: np.ndarray
+              should contain all field names in the terms of ancova
+              as well as response
+    """
+
+    import copy, scipy.stats
+    Y = recarray[response]
+    X = ancova.formula.design(recarray, return_float=True)
+    model = OLS(Y, X)
+    results = model.fit()
+    SSE_F = np.sum(results.resid**2)
+    df_F = results.df_resid
+
+    model = OLS(Y, np.ones((Y.shape[0],1)))
+    results = model.fit()
+    SSE_old = np.sum(results.resid**2)
+    df_old = results.df_resid
+
+    names = []
+    sss = []
+    fs = []
+    dfs = []
+    pvals = []
+
+    for d in range(1,len(ancova.formulae)+1):
+        terms = []
+        for f in ancova.formulae[:d]:
+            terms += list(f.terms)
+        X = Formula(terms).design(recarray, return_float=True)
+        model = OLS(Y, X)
+        results = model.fit()
+        SSE_new = np.sum(results.resid**2)
+        df_new = results.df_resid
+
+        sss.append(SSE_old - SSE_new)
+        dfs.append(df_old - df_new)
+        fs.append(((SSE_old-SSE_new) / (df_old - df_new)) / (SSE_F / df_F))
+        pvals.append(scipy.stats.f.sf(fs[-1], df_old-df_new, df_new))
+        names.append(ancova.contrast_strings[d-1])
+        SSE_old = SSE_new
+        df_old = df_new
+
+    result = np.array(names, np.dtype([('contrast','S%d' % max([len(n) for n in names]))]))
+    result = ML.rec_append_fields(result, ['SS', 'F', 'df', 'p_value'], [sss, fs, dfs, pvals])
+    return result
+
+def typeII(response, ancova, recarray):
+    """
+    Produce an ANCOVA table
+    from a given ANCOVA formula
+    with type II sums of squares.
+
+    Inputs
+    ------
+
+    response: str
+              field name of response in recarray
+
+    ancova: ANCOVA
+            specifies the model to be fit
+
+    recarray: np.ndarray
+              should contain all field names in the terms of ancova
+              as well as response
+    """
+
+    import copy, scipy.stats
+    Y = recarray[response]
+    X = ancova.formula.design(recarray, return_float=True)
+    model = OLS(Y, X)
+    results = model.fit()
+    SSE_F = np.sum(results.resid**2)
+    df_F = results.df_resid
+
+    names = []
+    sss = []
+    Fs = []
+    dfs = []
+    pvals = []
+
+    for name, expr_factors in zip(ancova.contrast_strings,
+                                  ancova.sequence()):
+        expr, factors = expr_factors
+        R = ancova.all_but_above(expr, factors)
+        F = ANCOVA(*(R.sequence() + [(expr, factors)]))
+        XR = R.formula.design(recarray, return_float=True)
+        XF = F.formula.design(recarray, return_float=True)
+        modelF = OLS(Y, XF)
+        modelR = OLS(Y, XR)
+        resultsR = modelR.fit()
+        resultsF = modelF.fit()
+
+        SSEF = np.sum(resultsF.resid**2)
+        dfF = resultsF.df_resid
+
+        SSER = np.sum(resultsR.resid**2)
+        dfR = resultsR.df_resid
+
+        sss.append(SSER-SSEF)
+        dfs.append(dfR - dfF)
+        Fs.append(((SSER-SSEF) / (dfR-dfF)) / (SSE_F / df_F))
+        pvals.append(scipy.stats.f.sf(Fs[-1], dfR-dfF, df_F))
+        names.append(name)
+
+    result = np.array(names, np.dtype([('contrast','S%d' % max([len(n) for n in names]))]))
+    result = ML.rec_append_fields(result, ['SS', 'F', 'df', 'p_value'], [sss, Fs, dfs, pvals])
+    return result
+
+        
+if __name__ == "__main__":
+
+    import urllib
+    import matplotlib.mlab as ML
+    from StringIO import StringIO
+    from terms import fromrec
+    
+    s= StringIO()
+    s.write(urllib.urlopen('http://stats191.stanford.edu/data/salary.csv').read())
+    s.seek(0)
+    d = ML.csv2rec(s)
+    terms = fromrec(d)
+
+    f = ANCOVA(1, terms['e'],terms['p'],(1,(terms['e'],terms['p'])))
+    f2 = ANCOVA(1, terms['x'], terms['e'],terms['p'],(1,(terms['e'],terms['p'])), (terms['x'], terms['e']))
+    
+## from pkg_resources import resource_stream
+## data = scipy.io.loadmat(resource_stream("formula","data/salary.csv"))
