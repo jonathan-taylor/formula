@@ -92,9 +92,9 @@ would yield
    {1: {}, X: {('E',): [('E', 'indicator')], ('P',): [('P', 'contrast')]}}
    {1: {}, X: {('E',): [('E', 'contrast')], ('P',): [('P', 'indicator')]}}
 
-In the first formula, *M* appears as a contrast while *E* appears
+In the first formula, *P* appears as a contrast while *E* appears
 as an indicator. In the second formula, *E* appears as a contrast
-and *M* as an indicator.
+and *P* as an indicator.
 
 Two-way interactions
 ~~~~~~~~~~~~~~~~~~~~
