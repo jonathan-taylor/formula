@@ -315,11 +315,10 @@ class ANCOVA(object):
         >>>
 
         """
-
-        f = self.formulae[0]
-        for ff in self.formulae[1:]:
-            f = f + ff
-        return f.delete_terms(Formula([0]))
+        terms = []
+        for ff in self.formulae:
+            terms += list(ff.terms)
+        return Formula(terms)
 
     # Methods
 
