@@ -7,6 +7,9 @@ from utils import factor_codings, simplicial_complex
 
 class ANCOVA(object):
 
+    # This flag is defined to avoid using isinstance
+    _ancova_flag = True
+
     """
     Instantiated with a sequence of (expr, [factor]) tuples.
     If there are no factors, entries can be of the form "expr".
@@ -58,7 +61,10 @@ class ANCOVA(object):
             if is_factor(factors):
                 factors = [factors]
             factors = tuple(factors)
-            self.graded_dict.setdefault(sympy.sympify(expr), {}).setdefault(len(factors), []).append(factors)
+            l = self.graded_dict.setdefault(sympy.sympify(expr), {}).setdefault(len(factors), [])
+            # ensure uniqueness
+            if factors not in l:
+                l.append(factors)
 
         # aliases for the intercept
 
@@ -76,13 +82,7 @@ class ANCOVA(object):
                 self.graded_dict[expr][0] = [()] 
 
     def __repr__(self):
-        terms = []
-        for expr in self.graded_dict:
-            for order in self.graded_dict[expr]:
-                for factors in self.graded_dict[expr][order]:
-                    terms.append(`(expr, tuple([f.name for f in factors]))`)
-
-        return "ANCOVA(%s)" % ','.join(terms)
+        return "ANCOVA(%s)" % str(self.sequence())
 
     @property
     def sorted_factors(self):
@@ -274,21 +274,6 @@ class ANCOVA(object):
         if not hasattr(self, '_contrast_reps'):
             self.contrasts
         return '+'.join(self._contrast_reps)
-        ## results = []
-        ## for expr in self.graded_dict:
-        ##     if str(expr) != 1:
-        ##         _expr = "I(%s)" % str(expr)
-        ##         for order in self.graded_dict[expr]:
-        ##             for factors in self.graded_dict[expr][order]:
-        ##                 results.append(':'.join([_expr] + [f.name for f in factors]))
-        ##     else:
-        ##         for order in self.graded_dict[expr]:
-        ##             for factors in self.graded_dict[expr][order]:
-        ##                 if factors:
-        ##                     results.append(':'.join([f.name for f in factors]))
-        ##                 else:
-        ##                     results.append('1')
-        ## return "+".join(results)
 
     def sequence(self, expr=None):
         """
@@ -352,8 +337,33 @@ class ANCOVA(object):
     def __mul__(self, other):
         if is_factor(other):
             return self.multiply_by_factor(other)
+        elif is_ancova(other):
+            result = []
+            oseq = other.sequence
+            sseq = self.sequence
+
+            for se, sf in self.sequence():
+                for oe, of in other.sequence():
+                    result.append((se*oe, sf+of))
+            return ANCOVA(*result)
         else:
             return self.multiply_by_expression(other)
+
+    def __add__(self, other):
+        """
+        Note: not commutatitive.
+
+        >>> x = Term('x'); f = Factor('f', range(3)); h = Factor('h', range(4))
+        >>> a1 = ANCOVA((x,f))
+        >>> a2 = ANCOVA((x,h))
+        >>> a1 + a2
+        >>> a1 + a2
+        ANCOVA([(1, ()), (x, (Factor('f', [0, 1, 2]),)), (x, (Factor('h', [0, 1, 2, 3]),))])
+
+        """
+        if not is_ancova(other):
+            raise ValueError('other should be an ANCOVA formula')
+        return concat(self, other)
 
     def multiply_by_factor(self, factor):
         """
@@ -428,3 +438,32 @@ def maximal(ancova):
         for m in maximal:
             result.append((expr, m))
     return ANCOVA(*result)
+
+def concat(*ancovas):
+    """
+    Create a new ANCOVA formula by concatenating a sequence
+    of ANCOVA formulae.
+
+    Note: this is not commutatitive because the
+    order in which the (expr, [factors]) appear in the
+    initiating sequence changes the resulting formula.
+
+    >>> x = Term('x'); f = Factor('f', range(3)); h = Factor('h', range(4))
+    >>> a1 = ANCOVA((x,f))
+    >>> a2 = ANCOVA((x,h))
+    >>> concat(a1,a2).formula
+    Formula([h_3*x, f_0*x, h_1*x, f_2*x, 1, f_1*x, h_2*x])
+    >>> concat(a2,a1).formula
+    Formula([h_3*x, h_1*x, f_2*x, 1, f_1*x, h_2*x, h_0*x])
+    >>> 
+
+    """
+    result = []
+    for ancova in ancovas:
+        result += ancova.sequence()
+    return ANCOVA(*result)
+
+def is_ancova(obj):
+    """ Is obj an ANCOVA?
+    """
+    return hasattr(obj, "_ancova_flag")
