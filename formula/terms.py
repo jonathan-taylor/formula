@@ -68,7 +68,8 @@ class Factor(object):
     # and getparams.
     _factor_flag = True
 
-    def __init__(self, name, levels, char='b'):
+    def __init__(self, name, levels, char='b',
+                 contrast='indicator', reference=None):
         """
         Parameters
         ----------
@@ -76,6 +77,8 @@ class Factor(object):
         levels : [str or int]
             A sequence of strings or ints.
         char : str
+        contrast : one of ['main_effect', 'drop_first', 'indicator']
+        reference : element of levels, if None defaults to levels[0]
 
         Returns
         -------
@@ -95,6 +98,22 @@ class Factor(object):
         self.name = name
         self._char = char
 
+        if contrast not in ['drop_reference',
+                            'main_effect',
+                            'indicator']:
+            raise ValueError('contrast must be one of %s' %
+                             `['drop_reference',
+                               'main_effect',
+                               'indicator']`)
+            
+        self.contrast = contrast
+        if reference is None:
+            self.reference = self.levels[0]
+        else:
+            if reference not in self.levels:
+                raise ValueError('reference should an element of levels')
+            self.reference = reference
+            
     def __getitem__(self, level):
         """
         self.get_term(level)
@@ -112,74 +131,44 @@ class Factor(object):
             raise ValueError('level not found')
         return self.formula["%s_%s" % (self.name, str(level))]
 
-
-    # TODO: allow different specifications of the contrasts
-    # here.... main_effect is like R's contr.sum
-
-    def _getmaineffect(self, ref=-1):
-        if not hasattr(self, "_main_effect"):
-            terms = [FactorTerm(self.name, l) for l in 
-                     self.levels]
-            ref_term = terms[ref]
-            terms.pop(ref)
-            self._main_effect = Formula([term - ref_term for term in terms])
-        return self._main_effect
-    main_effect = property(_getmaineffect)
+    @property
+    def main_effect(self):
+        terms = list(self.indicator.terms)
+        ref_term = self.get_term(self.reference)
+        terms.remove(ref_term)
+        return Formula([term - ref_term for term in terms])
 
     @property
-    def drop_first(self):
-        ref = 0
-        if not hasattr(self, "_drop1"):
-            terms = [FactorTerm(self.name, l) for l in 
-                     self.levels]
-            ref_term = terms[ref]
-            terms.pop(ref)
-            self._drop1 = Formula(terms)
-        return self._drop1
-
-
-    def stratify(self, variable):
-        """ Create a new variable, stratified by the levels of a Factor.
-
-        Parameters
-        ----------
-        variable : str or a simple sympy expression whose string representation
-            are all lower or upper case letters, i.e. it can be interpreted
-            as a name
-
-        Returns
-        -------
-        formula : Formula
-            Formula whose mean has one parameter named _variable%d, for each
-            level in self.levels
-        
-        Examples
-        --------
-        >>> f = Factor('a', ['x','y'])
-        >>> sf = f.stratify('theta')
-        >>> sf.mean
-        _theta0*a_x + _theta1*a_y
+    def drop_reference(self):
         """
-        if not set(str(variable)).issubset(lowercase +
-                                           uppercase + '0123456789'):
-            raise ValueError('variable should be interpretable as a '
-                             'name and not have anything but digits '
-                             'and letters')
-        variable = sympy.sympify(variable)
-        f = Formula(self.formula.terms, char=variable)
-        f.name = self.name
-        return f
+        The drop_reference formula:
+        a binary column for each level
+        of the factor except self.reference.
+        """
+
+        terms = list(self.indicator.terms)
+        ref_term = self.get_term(self.reference)
+        terms.remove(ref_term)
+        return Formula(terms)
+
+    @property
+    def indicator(self):
+        """
+        The indicator formula: a binary column for each level
+        of the factor.
+        """
+        if not hasattr(self, "_indicator"):
+            self._indicator = Formula([FactorTerm(self.name, l) for l in 
+                                     self.levels], char=self._char)
+        return self._indicator
 
     @property
     def formula(self):
         """
-        Create a formula.
+        Return the formula of the Factor = getattr(self, self.contrast)
         """
-        if not hasattr(self, "_formula"):
-            self._formula = Formula([FactorTerm(self.name, l) for l in 
-                                     self.levels], char=self._char)
-        return self._formula
-
+        return getattr(self, self.contrast)
+    
     @staticmethod
     def fromcol(col, name):
         """ Create a Factor from a column array.
@@ -220,7 +209,6 @@ class Factor(object):
             name = col.dtype.names[0]
         return Factor(name, levels)
 
-
 def is_term(obj):
     """ Is obj a Term?
     """
@@ -250,3 +238,35 @@ def fromrec(recarray):
         else:
             result[n] = Term(n)
     return result
+
+def stratify(factor, variable):
+    """ Create a new variable, stratified by the levels of a Factor.
+
+    Parameters
+    ----------
+    variable : str or a simple sympy expression whose string representation
+        are all lower or upper case letters, i.e. it can be interpreted
+        as a name
+
+    Returns
+    -------
+    formula : Formula
+        Formula whose mean has one parameter named _variable%d, for each
+        level in factor.levels
+
+    Examples
+    --------
+    >>> f = Factor('a', ['x','y'])
+    >>> sf = f.stratify('theta')
+    >>> sf.mean
+    _theta0*a_x + _theta1*a_y
+    """
+    if not set(str(variable)).issubset(lowercase +
+                                       uppercase + '0123456789'):
+        raise ValueError('variable should be interpretable as a '
+                         'name and not have anything but digits '
+                         'and letters')
+    variable = sympy.sympify(variable)
+    f = Formula(factor.formula.terms, char=variable)
+    f.name = factor.name
+    return f
