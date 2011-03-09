@@ -4,6 +4,7 @@ from formula import Formula, I
 from terms import Factor, is_term, is_factor, Term # Term for docstrings
 from utils import factor_codings, simplicial_complex
 
+from scipy.stats import f
 from scikits.statsmodels.regression import OLS
 
 class ANCOVA(object):
@@ -355,10 +356,13 @@ class ANCOVA(object):
         >>>
 
         """
-        terms = []
-        for ff in self.formulae:
-            terms += list(ff.terms)
-        return Formula(terms)
+        if self.formulae:
+            terms = []
+            for ff in self.formulae:
+                terms += list(ff.terms)
+            return Formula(terms)
+        else:
+            return Formula([0])
 
     # Methods
 
@@ -577,7 +581,6 @@ def typeI(response, ancova, recarray):
               as well as response
     """
 
-    import copy, scipy.stats
     Y = recarray[response]
     X = ancova.formula.design(recarray, return_float=True)
     model = OLS(Y, X)
@@ -585,7 +588,7 @@ def typeI(response, ancova, recarray):
     SSE_F = np.sum(results.resid**2)
     df_F = results.df_resid
 
-    model = OLS(Y, np.ones((Y.shape[0],1)))
+    model = OLS(Y, ancova.formulae[0].design(recarray, return_float=True))
     results = model.fit()
     SSE_old = np.sum(results.resid**2)
     df_old = results.df_resid
@@ -596,10 +599,20 @@ def typeI(response, ancova, recarray):
     dfs = []
     pvals = []
 
-    for d in range(1,len(ancova.formulae)+1):
+    names.append(ancova.contrast_strings[0])
+    fs.append(((np.sum(Y**2) - SSE_old) / (Y.shape[0] - df_old)) / (SSE_F / df_F))
+    sss.append((np.sum(Y**2) - SSE_old))
+    dfs.append(Y.shape[0] - df_old)
+    pvals.append(f_dbn.sf(fs[-1], Y.shape[0]-df_old, df_F))
+
+    for d in range(1,len(ancova.formulae)):
         terms = []
-        for f in ancova.formulae[:d]:
-            terms += list(f.terms)
+        for f in ancova.formulae[:(d+1)]:
+            terms += list(f_dbn.terms)
+
+        # JT: this is not numerically efficient
+        # could be done by updating some factorization of the full X
+
         X = Formula(terms).design(recarray, return_float=True)
         model = OLS(Y, X)
         results = model.fit()
@@ -609,8 +622,8 @@ def typeI(response, ancova, recarray):
         sss.append(SSE_old - SSE_new)
         dfs.append(df_old - df_new)
         fs.append(((SSE_old-SSE_new) / (df_old - df_new)) / (SSE_F / df_F))
-        pvals.append(scipy.stats.f.sf(fs[-1], df_old-df_new, df_new))
-        names.append(ancova.contrast_strings[d-1])
+        pvals.append(f_dbn.sf(fs[-1], df_old-df_new, df_new))
+        names.append(ancova.contrast_strings[d])
         SSE_old = SSE_new
         df_old = df_new
 
@@ -638,7 +651,6 @@ def typeII(response, ancova, recarray):
               as well as response
     """
 
-    import copy, scipy.stats
     Y = recarray[response]
     X = ancova.formula.design(recarray, return_float=True)
     model = OLS(Y, X)
@@ -657,7 +669,10 @@ def typeII(response, ancova, recarray):
         expr, factors = expr_factors
         R = ancova.all_but_above(expr, factors)
         F = ANCOVA(*(R.sequence() + [(expr, factors)]))
-        XR = R.formula.design(recarray, return_float=True)
+        if R.sequence():
+            XR = R.formula.design(recarray, return_float=True)
+        else:
+            XR = np.zeros((Y.shape[0], 1))
         XF = F.formula.design(recarray, return_float=True)
         modelF = OLS(Y, XF)
         modelR = OLS(Y, XR)
@@ -673,7 +688,7 @@ def typeII(response, ancova, recarray):
         sss.append(SSER-SSEF)
         dfs.append(dfR - dfF)
         Fs.append(((SSER-SSEF) / (dfR-dfF)) / (SSE_F / df_F))
-        pvals.append(scipy.stats.f.sf(Fs[-1], dfR-dfF, df_F))
+        pvals.append(f_dbn.sf(Fs[-1], dfR-dfF, df_F))
         names.append(name)
 
     result = np.array(names, np.dtype([('contrast','S%d' % max([len(n) for n in names]))]))
@@ -695,7 +710,10 @@ if __name__ == "__main__":
     terms = fromrec(d)
 
     f = ANCOVA(1, terms['e'],terms['p'],(1,(terms['e'],terms['p'])))
-    f2 = ANCOVA(1, terms['x'], terms['e'],terms['p'],(1,(terms['e'],terms['p'])), (terms['x'], terms['e']))
+    ANCOVA.add_intercept = False
+    f2 = ANCOVA(terms['e'],(1,(terms['e'],terms['p'])))
+    ANCOVA.add_intercept = True
+    f3 = ANCOVA((1,(terms['e'],terms['p'])))
     
 ## from pkg_resources import resource_stream
 ## data = scipy.io.loadmat(resource_stream("formula","data/salary.csv"))
