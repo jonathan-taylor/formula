@@ -77,7 +77,7 @@ class Factor(object):
         levels : [str or int]
             A sequence of strings or ints.
         char : str
-        contrast : one of ['main_effect', 'drop_first', 'indicator']
+        contrast : one of ['main_effect', 'drop_reference', 'indicator']
         reference : element of levels, if None defaults to levels[0]
 
         Returns

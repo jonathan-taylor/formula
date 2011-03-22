@@ -61,7 +61,6 @@ class ANCOVA(object):
         if "default_contrast" in keywords:
             self.default_contrast = keywords['default_contrast']
         
-
         self.graded_dict = {}
 
         # create a copy of graded_dict
