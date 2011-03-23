@@ -69,7 +69,7 @@ class Factor(object):
     _factor_flag = True
 
     def __init__(self, name, levels, char='b',
-                 contrast='indicator', reference=None):
+                 coding='indicator', reference=None):
         """
         Parameters
         ----------
@@ -77,7 +77,7 @@ class Factor(object):
         levels : [str or int]
             A sequence of strings or ints.
         char : str
-        contrast : one of ['main_effect', 'drop_reference', 'indicator']
+        coding : one of ['main_effect', 'drop_reference', 'indicator']
         reference : element of levels, if None defaults to levels[0]
 
         Returns
@@ -98,15 +98,15 @@ class Factor(object):
         self.name = name
         self._char = char
 
-        if contrast not in ['drop_reference',
+        if coding not in ['drop_reference',
                             'main_effect',
                             'indicator']:
-            raise ValueError('contrast must be one of %s' %
+            raise ValueError('coding must be one of %s' %
                              `['drop_reference',
                                'main_effect',
                                'indicator']`)
             
-        self.contrast = contrast
+        self.coding = coding
         if reference is None:
             self.reference = self.levels[0]
         else:
@@ -165,9 +165,9 @@ class Factor(object):
     @property
     def formula(self):
         """
-        Return the formula of the Factor = getattr(self, self.contrast)
+        Return the formula of the Factor = getattr(self, self.coding)
         """
-        return getattr(self, self.contrast)
+        return getattr(self, self.coding)
     
     @staticmethod
     def fromcol(col, name):

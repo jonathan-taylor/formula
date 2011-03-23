@@ -110,6 +110,7 @@ import warnings
 
 import sympy
 import numpy as np
+from utils import contrast_from_cols_or_rows
 
 from aliased import aliased_function, _add_aliases_to_namespace, vectorize
 

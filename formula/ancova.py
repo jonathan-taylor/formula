@@ -4,8 +4,9 @@ from formula import Formula, I
 from terms import Factor, is_term, is_factor, Term # Term for docstrings
 from utils import factor_codings, simplicial_complex
 
-from scipy.stats import f
+from scipy.stats import f as f_dbn
 from scikits.statsmodels.regression import OLS
+import matplotlib.mlab as ML
 
 class ANCOVA(object):
 
@@ -224,6 +225,12 @@ class ANCOVA(object):
         >>> a.slices['I(x):f']
         slice(1, 4, None)
 
+        Note
+        ====
+
+        This implicitly assumes that default_coding is
+        "main_effect".
+
         """
         if not hasattr(self, '_formulae'):
             self.contrasts
@@ -255,6 +262,9 @@ class ANCOVA(object):
 
         Note
         ====
+
+        This implicitly assumes that default_coding is
+        "main_effect".
 
         Not all contrasts are estimable depending on the design
         matrix. Hence, when these contrasts are used to compute F-statistics
@@ -310,6 +320,7 @@ class ANCOVA(object):
             self.contrasts
         return '+'.join(self.contrast_names)
 
+    #XXX TODO: refactor contrasts property using "sequence"
     def sequence(self, expr=None):
         """
         A sequence that can be used to construct an equivalent model
@@ -346,16 +357,21 @@ class ANCOVA(object):
 
         This is used in creating type II sums of squares tables.
         """
-        sequence = []
+        sequenceR = []; sequenceF = []
         for k in self.graded_dict:
             if k != expr:
-                sequence += self.sequence(k)
+                sequenceR += self.sequence(k)
+                sequenceF += self.sequence(k)
             else:
                 for order in self.graded_dict[k]:
                     for fs in self.graded_dict[k][order]:
                         if not set(fs).issuperset(factors):
-                            sequence.append((expr, fs))
-        return ANCOVA(*sequence)
+                            sequenceR.append((expr, fs));
+                            sequenceF.append((expr, fs))
+                        elif set(fs) == set(factors):
+                            sequenceF.append((expr, fs))
+                            
+        return ANCOVA(*sequenceF)
 
     @property
     def formula(self):
@@ -458,9 +474,9 @@ def get_contributions(codings, sorted_factors, contrast='main_effect'):
     if codings:
         formulae = []
         lens = []
-        for prod_of_factors in codings:
+        for prod_of_factors, contrasts in codings.items():
             cur_formula = I
-            for n, c in codings[prod_of_factors]:
+            for n, c in contrasts:
                 if c == 'indicator':
                     cur_formula = cur_formula * sorted_factors[n].indicator
                 else:
@@ -582,7 +598,7 @@ def typeI(response, ancova, recarray):
     for d in range(1,len(ancova.formulae)):
         terms = []
         for f in ancova.formulae[:(d+1)]:
-            terms += list(f_dbn.terms)
+            terms += list(f.terms)
 
         # JT: this is not numerically efficient
         # could be done by updating some factorization of the full X
@@ -601,8 +617,16 @@ def typeI(response, ancova, recarray):
         SSE_old = SSE_new
         df_old = df_new
 
+    # Add in the "residual row"
+    
+    sss.append(SSE_new)
+    dfs.append(df_new)
+    pvals.append(np.nan)
+    fs.append(np.nan)
+    names.append('Residuals')
+
     result = np.array(names, np.dtype([('contrast','S%d' % max([len(n) for n in names]))]))
-    result = ML.rec_append_fields(result, ['SS', 'F', 'df', 'p_value'], [sss, fs, dfs, pvals])
+    result = ML.rec_append_fields(result, ['SS', 'df', 'MS', 'F', 'p_value'], [sss, dfs, np.array(sss) / np.array(dfs), fs, pvals])
     return result
 
 def typeII(response, ancova, recarray):
@@ -634,39 +658,42 @@ def typeII(response, ancova, recarray):
 
     names = []
     sss = []
-    Fs = []
+    fs = []
     dfs = []
     pvals = []
 
     for name, expr_factors in zip(ancova.contrast_names,
                                   ancova.sequence()):
         expr, factors = expr_factors
-        R = ancova.all_but_above(expr, factors)
-        F = ANCOVA(*(R.sequence() + [(expr, factors)]))
-        if R.sequence():
-            XR = R.formula.design(recarray, return_float=True)
-        else:
-            XR = np.zeros((Y.shape[0], 1))
-        XF = F.formula.design(recarray, return_float=True)
+        F = ancova.all_but_above(expr, factors)
+        C = ancova.contrasts[name]
+        XF, contrast_matrices = F.formula.design(recarray, contrasts={'C':C})
         modelF = OLS(Y, XF)
-        modelR = OLS(Y, XR)
-        resultsR = modelR.fit()
         resultsF = modelF.fit()
 
         SSEF = np.sum(resultsF.resid**2)
         dfF = resultsF.df_resid
+        ftest = resultsF.f_test(contrast_matrices['C'])
 
-        SSER = np.sum(resultsR.resid**2)
-        dfR = resultsR.df_resid
+        SSER = SSEF + ftest.fvalue * ftest.df_num * (SSEF / dfF)
+        dfR = dfF + ftest.df_num
 
-        sss.append(SSER-SSEF)
-        dfs.append(dfR - dfF)
-        Fs.append(((SSER-SSEF) / (dfR-dfF)) / (SSE_F / df_F))
-        pvals.append(f_dbn.sf(Fs[-1], dfR-dfF, df_F))
+        sss.append(SSER - SSEF)
+        dfs.append(ftest.df_num)
+        fs.append(((SSER - SSEF) / (dfR - dfF)) / (SSE_F / df_F))
+        pvals.append(f_dbn.sf(fs[-1], dfR-dfF, df_F))
         names.append(name)
 
+    # Add in the "residual row"
+    
+    sss.append(SSE_F)
+    dfs.append(df_F)
+    pvals.append(np.nan)
+    fs.append(np.nan)
+    names.append('Residuals')
+
     result = np.array(names, np.dtype([('contrast','S%d' % max([len(n) for n in names]))]))
-    result = ML.rec_append_fields(result, ['SS', 'F', 'df', 'p_value'], [sss, Fs, dfs, pvals])
+    result = ML.rec_append_fields(result, ['SS', 'df', 'MS', 'F', 'p_value'], [sss, dfs, np.array(sss) / np.array(dfs), fs, pvals])
     return result
 
         
@@ -714,6 +741,9 @@ def typeIII(response, ancova, recarray):
     model = OLS(Y, X)
 
     results = model.fit()
+    SSE_F = np.sum(results.resid**2)
+    df_F = results.df_resid
+
     names = []
     fs = []
     dfs = []
@@ -726,8 +756,17 @@ def typeIII(response, ancova, recarray):
         dfs.append(r.df_num)
         pvals.append(r.pvalue)
         sss.append(r.fvalue * results.scale * r.df_num)
+
+    # Add in the "residual row"
+    
+    sss.append(SSE_F)
+    dfs.append(df_F)
+    pvals.append(np.nan)
+    fs.append(np.nan)
+    names.append('Residuals')
+
     result = np.array(names, np.dtype([('contrast','S%d' % max([len(n) for n in names]))]))
-    result = ML.rec_append_fields(result, ['SS', 'F', 'df', 'p_value'], [sss, fs, dfs, pvals])
+    result = ML.rec_append_fields(result, ['SS', 'df', 'MS', 'F', 'p_value'], [sss, dfs, np.array(sss) / np.array(dfs), fs, pvals])
     return result
 
 ## from pkg_resources import resource_stream
