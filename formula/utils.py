@@ -1,5 +1,40 @@
 import numpy as np
+from scipy.linalg import svdvals
+
 from itertools import combinations
+
+def rank(X, cond=1.0e-12):
+    # XXX Is this in scipy somewhere?
+    """ Return the rank of a matrix X
+
+    Rank based on its generalized inverse, not the SVD.
+    """
+    X = np.asarray(X)
+    if len(X.shape) == 2:
+        D = svdvals(X)
+        return int(np.add.reduce(np.greater(D / D.max(), cond).astype(np.int32)))
+    else:
+        return int(not np.alltrue(np.equal(X, 0.)))
+
+def fullrank(X, r=None):
+    """ Return a matrix whose column span is the same as X
+    using an SVD decomposition.
+
+    If the rank of X is known it can be specified by r-- no check is
+    made to ensure that this really is the rank of X.
+    """
+
+    if r is None:
+        r = rank(X)
+
+    V, D, U = np.linalg.svd(X, full_matrices=0)
+    order = np.argsort(D)
+    order = order[::-1]
+    value = []
+    for i in range(r):
+        value.append(V[:,order[i]])
+    return np.asarray(np.transpose(value)).astype(np.float64)
+
 
 def contrast_from_cols_or_rows(L, D, pseudo=None):
     """ Construct a contrast matrix from a design matrix D
@@ -169,7 +204,7 @@ def factor_codings(*factor_monomials):
     lmax = 0
     from copy import copy
     already_seen = set([])
-    final_result = {}
+    final_result = []
     for factor_monomial in factor_monomials:
         result = []
         factor_monomial = list(factor_monomial)
@@ -186,7 +221,7 @@ def factor_codings(*factor_monomials):
             else:
                 result.append((factor_monomial[j], 'indicator'))
         already_seen = already_seen.union(simplicial_complex(factor_monomial)[2])
-        final_result[tuple(factor_monomial)] = result
-    return final_result
+        final_result.append((tuple(factor_monomial), result))
+    return dict(final_result)
 
 
