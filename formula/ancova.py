@@ -5,7 +5,7 @@ from terms import Factor, is_term, is_factor, Term # Term for docstrings
 from utils import factor_codings, simplicial_complex
 
 from scipy.stats import f as f_dbn
-from scikits.statsmodels.regression import OLS
+from scikits.statsmodels.api import OLS
 import matplotlib.mlab as ML
 
 class ANCOVA(object):
@@ -32,7 +32,7 @@ class ANCOVA(object):
     >>> f2 = ANCOVA((x,p),(x,e))
     >>> f2.formula
     Formula([1, P_M*X, E_B*X, E_M*X, E_P*X])
-    >>> 
+    >>>
 
     It also depends on the sorted order of the levels
     of the factor (as it does in R).
@@ -49,7 +49,7 @@ class ANCOVA(object):
 
     def __init__(self, *expr_factor_tuples, **keywords):
         # set intercept / main_effect behaviour
-        
+
         add_main_effects = False
         if "add_main_effects" in keywords:
             add_main_effects = keywords['add_main_effects']
@@ -57,11 +57,11 @@ class ANCOVA(object):
         add_intercept=True
         if "add_intercept" in keywords:
             add_intercept = keywords['add_intercept']
-        
+
         self.default_contrast='drop_reference'
         if "default_contrast" in keywords:
             self.default_contrast = keywords['default_contrast']
-        
+
         self.graded_dict = {}
 
         # create a copy of graded_dict
@@ -99,7 +99,7 @@ class ANCOVA(object):
 
         if add_main_effects:
             for expr in self.graded_dict:
-                self.graded_dict[expr][0] = [()] 
+                self.graded_dict[expr][0] = [()]
 
     def __repr__(self):
         return "ANCOVA(%s)" % str(self.sequence())
@@ -129,7 +129,7 @@ class ANCOVA(object):
         In this example, in the "x:f:h" term, "f" is coded
         as a contrast and its "first" level is dropped. This
         is the "first" of the sorted levels of "f".
-        
+
 
         """
         if not hasattr(self, "_sorted_factors"):
@@ -179,9 +179,9 @@ class ANCOVA(object):
     def contrasts(self):
         """
         Return the canonical contrasts of the ANCOVA.
-        The order is determined by the sorted order of 
+        The order is determined by the sorted order of
         numerical terms in the ANCOVA.
-        Each numerical term yields several 
+        Each numerical term yields several
 
         >>> x = Term('x'); f = Factor('f', [2,1,3]) ; h =Factor('h', range(2))
         >>> a = ANCOVA((x,f), (x,(f,h)))
@@ -246,7 +246,7 @@ class ANCOVA(object):
     def contrast_matrices(self):
         """
         Return the canonical contrast matrices of the ANCOVA.
-        The order is determined by the sorted order of 
+        The order is determined by the sorted order of
         numerical terms in the ANCOVA.
         Each numerical term yields several contrasts.
 
@@ -272,9 +272,9 @@ class ANCOVA(object):
         the projection of the rows of the contrast matrices onto the
         row space of the design matrix. Consistent contrast matrices
         can be found using `formula.utils.contrast_from_cols_or_rows`
-                                                                    
+
         """
-        
+
         p = len(self.formula.terms)
         matrices = {}
         for crep in self._contrast_names:
@@ -345,7 +345,7 @@ class ANCOVA(object):
                 for factors in self.graded_dict[expr][order]:
                     result.append((expr, factors))
         return result
-    
+
     def all_but_above(self, expr, factors):
         """
         Create an ANCOVA for formula
@@ -370,14 +370,14 @@ class ANCOVA(object):
                             sequenceF.append((expr, fs))
                         elif set(fs) == set(factors):
                             sequenceF.append((expr, fs))
-                            
+
         return ANCOVA(*sequenceF)
 
     @property
     def formula(self):
         """
         Create a Formula using R's rules for
-        coding factors. 
+        coding factors.
 
 
         >>> x = Term('x'); f = Factor('f', range(3)) ; h =Factor('h', range(2))
@@ -510,7 +510,7 @@ def get_factor_codings(graded_subsets_of_factors):
 def maximal(ancova):
     """
     Return an ANCOVA formula with only the maximal elements
-    for each expression. 
+    for each expression.
     """
     result = []
     for expr in ancova.graded_dict:
@@ -535,7 +535,7 @@ def concat(*ancovas):
     Formula([h_3*x, f_0*x, h_1*x, f_2*x, 1, f_1*x, h_2*x])
     >>> concat(a2,a1).formula
     Formula([h_3*x, h_1*x, f_2*x, 1, f_1*x, h_2*x, h_0*x])
-    >>> 
+    >>>
 
     """
     result = []
@@ -618,7 +618,7 @@ def typeI(response, ancova, recarray):
         df_old = df_new
 
     # Add in the "residual row"
-    
+
     sss.append(SSE_new)
     dfs.append(df_new)
     pvals.append(np.nan)
@@ -685,7 +685,7 @@ def typeII(response, ancova, recarray):
         names.append(name)
 
     # Add in the "residual row"
-    
+
     sss.append(SSE_F)
     dfs.append(df_F)
     pvals.append(np.nan)
@@ -696,14 +696,14 @@ def typeII(response, ancova, recarray):
     result = ML.rec_append_fields(result, ['SS', 'df', 'MS', 'F', 'p_value'], [sss, dfs, np.array(sss) / np.array(dfs), fs, pvals])
     return result
 
-        
+
 if __name__ == "__main__":
 
     import urllib
     import matplotlib.mlab as ML
     from StringIO import StringIO
     from terms import fromrec
-    
+
     s= StringIO()
     s.write(urllib.urlopen('http://stats191.stanford.edu/data/salary.csv').read())
     s.seek(0)
@@ -715,7 +715,7 @@ if __name__ == "__main__":
     f2 = ANCOVA(terms['e'],(1,(terms['e'],terms['p'])))
     ANCOVA.add_intercept = True
     f3 = ANCOVA((1,(terms['e'],terms['p'])))
-    
+
 def typeIII(response, ancova, recarray):
     """
     Produce an ANCOVA table
@@ -758,7 +758,7 @@ def typeIII(response, ancova, recarray):
         sss.append(r.fvalue * results.scale * r.df_num)
 
     # Add in the "residual row"
-    
+
     sss.append(SSE_F)
     dfs.append(df_F)
     pvals.append(np.nan)
