@@ -5,7 +5,7 @@ Example
 ~~~~~~~
 
 This is an example with one numeric variable
-and 2 categorical variables. It can be found 
+and 2 categorical variables. It can be found
 `here <http://stats191.stanford.edu/interactions.html>`_
 though this example has modified the data to be characters
 instead of numeric. This just makes *R* automatically
@@ -46,7 +46,7 @@ To fit the model, we use *scikits.statsmodels*
 
 .. ipython::
 
-   from scikits.statsmodels.regression import OLS
+   from scikits.statsmodels.api import OLS
    model = OLS(salary['s'], formula.design(salary, return_float=True))
    results = model.fit()
    print results.params
@@ -148,7 +148,7 @@ as it does in *R*:
    print(coef(lm(S ~ X:E:P + X:E + X:P, data=data)))
 
 What is important is the *graded* order. That is, for the numeric
-variable *X*, the first order factors are ordered in *f4* as 
+variable *X*, the first order factors are ordered in *f4* as
 *[set([P]),set([E])]* and its
 second order factors are *[set([P,E])]* while it has no zeroth order
 factors. The only difference between *ancova4* and *ancova5* is the order
@@ -217,7 +217,7 @@ as equal. The *ANCOVA* module makes a distinction
 between these two. The reason *R* has a missing value in the coefficients
 is that its rules for generating design matrices told it that *E* should
 be coded with indicators in the term *X:E* which leads
-to a linear dependence with *X* already in the model. 
+to a linear dependence with *X* already in the model.
 The *ANCOVA* implementation treats *X* as *(X,1)* and hence when *(X,E)*
 is to be added it sees that there will be a linear dependence if
 *E* is added with indicator functions. Effectively, all columns with
@@ -254,9 +254,9 @@ purely categorical formula.
    purely_categorical = ANCOVA(*[(1, factors) for _, factors in ancova7b.sequence(z)])
    purely_categorical.formula.terms
    purely_categorical.formula.terms * z
-   
 
-    
+
+
 
 Contrasts
 ~~~~~~~~~
