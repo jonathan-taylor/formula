@@ -5,4 +5,5 @@
    :maxdepth: 2
 
    ancova.rst
-   formula_math.rst
+   api/index.rst
+   .. formula_math.rst

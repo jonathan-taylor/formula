@@ -38,7 +38,8 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.autosummary',
               'ipython_console_highlighting', 
               'inheritance_diagram', 
-              'rdirective'
+              'rdirective',
+              'ipython_directive'
               ]
 
 # # Current version (as of 11/2010) of numpydoc is only compatible with sphinx >
@@ -67,6 +68,7 @@ extensions = ['sphinx.ext.autodoc',
 # feature updates so we'll try to use that one first.
 try:
     import matplotlib.sphinxext
+    extensions.append('matplotlib.sphinxext.mathmpl')
     extensions.append('matplotlib.sphinxext.only_directives')
     extensions.append('matplotlib.sphinxext.plot_directive')
 except ImportError:

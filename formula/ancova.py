@@ -2,10 +2,16 @@ import numpy as np
 import sympy
 from formula import Formula, I
 from terms import Factor, is_term, is_factor, Term # Term for docstrings
-from utils import factor_codings
+from utils import factor_codings, simplicial_complex
 
+from scipy.stats import f as f_dbn
+from scikits.statsmodels.regression import OLS
+import matplotlib.mlab as ML
 
 class ANCOVA(object):
+
+    # This flag is defined to avoid using isinstance
+    _ancova_flag = True
 
     """
     Instantiated with a sequence of (expr, [factor]) tuples.
@@ -40,9 +46,22 @@ class ANCOVA(object):
 
     add_intercept=True
     add_main_effects=False
-    aliases_for_intercept=[1, 'constant', '(Intercept)']
 
-    def __init__(self, *expr_factor_tuples):
+    def __init__(self, *expr_factor_tuples, **keywords):
+        # set intercept / main_effect behaviour
+        
+        add_main_effects = False
+        if "add_main_effects" in keywords:
+            add_main_effects = keywords['add_main_effects']
+
+        add_intercept=True
+        if "add_intercept" in keywords:
+            add_intercept = keywords['add_intercept']
+        
+        self.default_contrast='drop_reference'
+        if "default_contrast" in keywords:
+            self.default_contrast = keywords['default_contrast']
+        
         self.graded_dict = {}
 
         # create a copy of graded_dict
@@ -50,6 +69,9 @@ class ANCOVA(object):
         for expr_factors in expr_factor_tuples:
             # each element of the sequence should have the form
             # (sympy, [factors]) or sympy or (sympy, factor)
+            if is_factor(expr_factors):
+                expr_factors = (1, expr_factors)
+
             try:
                 expr, factors = tuple(expr_factors)
             except TypeError: # not a sequence
@@ -58,31 +80,29 @@ class ANCOVA(object):
             if is_factor(factors):
                 factors = [factors]
             factors = tuple(factors)
-            self.graded_dict.setdefault(expr, {}).setdefault(len(factors), []).append(factors)
+            l = self.graded_dict.setdefault(sympy.sympify(expr), {}).setdefault(len(factors), [])
+            # ensure uniqueness
+            if factors not in l:
+                l.append(factors)
 
         # aliases for the intercept
 
-        for s in ANCOVA.aliases_for_intercept:
+        aliases_for_intercept=[1, 'constant', '(Intercept)']
+        for s in aliases_for_intercept:
             if s in self.graded_dict:
                 for k in self.graded_dict[s].keys():
                     self.graded_dict.setdefault(sympy.Number(1), {}).setdefault(k, []).extend(self.graded_dict[s][k])
                 del(self.graded_dict[s])
 
-        if ANCOVA.add_intercept:
-            self.graded_dict.setdefault(sympy.Number(1), {})[0] = [[]]
+        if add_intercept:
+            self.graded_dict.setdefault(sympy.Number(1), {})[0] = [()]
 
-        if ANCOVA.add_main_effects:
+        if add_main_effects:
             for expr in self.graded_dict:
-                self.graded_dict[expr][0] = [[]] 
+                self.graded_dict[expr][0] = [()] 
 
     def __repr__(self):
-        terms = []
-        for expr in self.graded_dict:
-            for order in self.graded_dict[expr]:
-                for factors in self.graded_dict[expr][order]:
-                    terms.append(`(expr, tuple([f.name for f in factors]))`)
-
-        return "ANCOVA(%s)" % ','.join(terms)
+        return "ANCOVA(%s)" % str(self.sequence())
 
     @property
     def sorted_factors(self):
@@ -141,6 +161,21 @@ class ANCOVA(object):
         return self._codings
 
     @property
+    def contrast_names(self):
+        """
+        Return the canonical order of the contrasts of the ANCOVA
+        formula that will be used, for instance, in type I sum
+        of squares.
+
+        The numeric variables are sorted, then within
+        each numeric, the graded order of the
+        factors is preserved.
+        """
+        if not hasattr(self, '_contrast_names'):
+            self.contrasts
+        return self._contrast_names
+
+    @property
     def contrasts(self):
         """
         Return the canonical contrasts of the ANCOVA.
@@ -156,20 +191,26 @@ class ANCOVA(object):
         """
         if not hasattr(self, "_contrasts"):
             self._contrasts = {}
-            self._contrast_reps = []
+            self._contrast_names = []
             self._formulae = []
             for expr in sorted(self.graded_dict.keys()):
                 formulae = get_contributions(self.codings[expr],
-                                             self.sorted_factors)
+                                             self.sorted_factors,
+                                             contrast=self.default_contrast)
                 for formula, srep in formulae:
                     v = formula * Formula([expr])
-                    sexpr = "I(%s)" % str(expr)
-                    if srep:
-                        crep = ':'.join([sexpr,srep])
+                    if str(expr) != '1':
+                        sexpr = "I(%s)" % str(expr)
+                        if srep and srep != '1':
+                            crep = ':'.join([sexpr,srep])
+                        else:
+                            crep = sexpr
+                    elif srep:
+                        crep = ':'.join([srep])
                     else:
-                        crep = sexpr
+                        crep = '1'
                     self._contrasts[crep] = v
-                    self._contrast_reps.append(crep)
+                    self._contrast_names.append(crep)
                     self._formulae.append(v)
         return self._contrasts
 
@@ -184,12 +225,18 @@ class ANCOVA(object):
         >>> a.slices['I(x):f']
         slice(1, 4, None)
 
+        Note
+        ====
+
+        This implicitly assumes that default_coding is
+        "main_effect".
+
         """
         if not hasattr(self, '_formulae'):
             self.contrasts
         idx = 0
         result = {}
-        for crep in self._contrast_reps:
+        for crep in self._contrast_names:
             l = len(self.contrasts[crep].terms)
             result[crep] = slice(idx, idx + l)
             idx += l
@@ -216,6 +263,9 @@ class ANCOVA(object):
         Note
         ====
 
+        This implicitly assumes that default_coding is
+        "main_effect".
+
         Not all contrasts are estimable depending on the design
         matrix. Hence, when these contrasts are used to compute F-statistics
         the actual "degrees of freedom" of the F-statistic depends on
@@ -227,7 +277,7 @@ class ANCOVA(object):
         
         p = len(self.formula.terms)
         matrices = {}
-        for crep in self._contrast_reps:
+        for crep in self._contrast_names:
             s = self.slices[crep]
             l = s.stop - s.start
             array = np.zeros((l,p), np.float)
@@ -240,7 +290,7 @@ class ANCOVA(object):
     def formulae(self):
         """
         Return the canonical formulae, one for each item
-        in self.sequence
+        in self.sequence()
 
         >>> x = Term('x'); f = Factor('f', [2,1,3]) ; h =Factor('h', range(2))
         >>> a = ANCOVA((x,f), (x,(f,h)))
@@ -261,46 +311,68 @@ class ANCOVA(object):
         >>> x = Term('x'); f = Factor('f', [2,1,3]) ; h =Factor('h', range(2))
         >>> a = ANCOVA((x,f), (x,(f,h)))
         >>> a.Rstr
-        '1+x:f+x:f:h'
+        '1+I(x):f+I(x):f:h'
         >>>
 
         """
 
-        results = []
-        for expr in self.graded_dict:
-            _expr = str(expr).replace("*", ":")
-            if _expr != '1':
-                for order in self.graded_dict[expr]:
-                    for factors in self.graded_dict[expr][order]:
-                        results.append(':'.join([_expr] + [f.name for f in factors]))
-            else:
-                for order in self.graded_dict[expr]:
-                    for factors in self.graded_dict[expr][order]:
-                        if factors:
-                            results.append(':'.join([f.name for f in factors]))
-                        else:
-                            results.append('1')
-        return "+".join(results)
+        if not hasattr(self, '_contrast_names'):
+            self.contrasts
+        return '+'.join(self.contrast_names)
 
-    @property
-    def sequence(self):
+    #XXX TODO: refactor contrasts property using "sequence"
+    def sequence(self, expr=None):
         """
-        A sequence that can be used to construct an equivalent model.
+        A sequence that can be used to construct an equivalent model
+        if expr is None. If expr is not None, then this
+        model is equivalent to the given model but only
+        has numeric terms matching expr.
 
         >>> x = Term('x'); f = Factor('f', range(3)) ; h =Factor('h', range(2))
         >>> i = Factor('i', range(3))
         >>> a = ANCOVA((x,f), (x,(f,h)),(x,(i,h)))
-        >>> a.sequence
+        >>> a.sequence()
         [(1, []), (x, (Factor('f', [0, 1, 2]),)), (x, (Factor('f', [0, 1, 2]), Factor('h', [0, 1]))), (x, (Factor('i', [0, 1, 2]), Factor('h', [0, 1])))]
 
         """
         result = []
-        for expr in self.graded_dict:
+        if expr is None:
+            exprs = sorted(self.graded_dict.keys())
+        else:
+            exprs = [sympy.sympify(expr)]
+        for expr in exprs:
             for order in self.graded_dict[expr]:
                 for factors in self.graded_dict[expr][order]:
                     result.append((expr, factors))
         return result
     
+    def all_but_above(self, expr, factors):
+        """
+        Create an ANCOVA for formula
+        that has all variables except everything
+        in self that is "greater" than (expr, factors).
+        That is, all pairings of (expr, factors) where
+        factors is not a superset of factors
+        as well as everything else in the model.
+
+        This is used in creating type II sums of squares tables.
+        """
+        sequenceR = []; sequenceF = []
+        for k in self.graded_dict:
+            if k != expr:
+                sequenceR += self.sequence(k)
+                sequenceF += self.sequence(k)
+            else:
+                for order in self.graded_dict[k]:
+                    for fs in self.graded_dict[k][order]:
+                        if not set(fs).issuperset(factors):
+                            sequenceR.append((expr, fs));
+                            sequenceF.append((expr, fs))
+                        elif set(fs) == set(factors):
+                            sequenceF.append((expr, fs))
+                            
+        return ANCOVA(*sequenceF)
+
     @property
     def formula(self):
         """
@@ -315,10 +387,13 @@ class ANCOVA(object):
         >>>
 
         """
-        terms = []
-        for ff in self.formulae:
-            terms += list(ff.terms)
-        return Formula(terms)
+        if self.formulae:
+            terms = []
+            for ff in self.formulae:
+                terms += list(ff.terms)
+            return Formula(terms)
+        else:
+            return Formula([0])
 
     # Methods
 
@@ -332,16 +407,41 @@ class ANCOVA(object):
         ANCOVA((1, ()),(x, ('f', 'h')))
 
         """
-        result = self.sequence
-        for term in ANCOVA(*terms).sequence:
+        result = self.sequence()
+        for term in ANCOVA(*terms).sequence():
             result.remove(term)
         return ANCOVA(*result)
 
     def __mul__(self, other):
         if is_factor(other):
             return self.multiply_by_factor(other)
+        elif is_ancova(other):
+            result = []
+            oseq = other.sequence
+            sseq = self.sequence
+
+            for se, sf in self.sequence():
+                for oe, of in other.sequence():
+                    result.append((se*oe, sf+of))
+            return ANCOVA(*result)
         else:
             return self.multiply_by_expression(other)
+
+    def __add__(self, other):
+        """
+        Note: not commutatitive.
+
+        >>> x = Term('x'); f = Factor('f', range(3)); h = Factor('h', range(4))
+        >>> a1 = ANCOVA((x,f))
+        >>> a2 = ANCOVA((x,h))
+        >>> a1 + a2
+        >>> a1 + a2
+        ANCOVA([(1, ()), (x, (Factor('f', [0, 1, 2]),)), (x, (Factor('h', [0, 1, 2, 3]),))])
+
+        """
+        if not is_ancova(other):
+            raise ValueError('other should be an ANCOVA formula')
+        return concat(self, other)
 
     def multiply_by_factor(self, factor):
         """
@@ -367,21 +467,23 @@ class ANCOVA(object):
             graded_dict[expr * expr] = self.graded_dict[expr]
         return ANCOVA(graded_dict)
 
-
-def get_contributions(codings, sorted_factors):
+def get_contributions(codings, sorted_factors, contrast='main_effect'):
     """
     Determine which columns a subset of factors
     """
     if codings:
         formulae = []
-        for prod_of_factors in codings:
+        lens = []
+        for prod_of_factors, contrasts in codings.items():
             cur_formula = I
-            for n, c in codings[prod_of_factors]:
+            for n, c in contrasts:
                 if c == 'indicator':
-                    cur_formula = cur_formula * sorted_factors[n].formula
+                    cur_formula = cur_formula * sorted_factors[n].indicator
                 else:
-                    cur_formula = cur_formula * sorted_factors[n].drop_first
+                    cur_formula = cur_formula * getattr(sorted_factors[n], contrast)
             formulae.append((cur_formula, ':'.join(prod_of_factors)))
+            lens.append(len(prod_of_factors))
+        formulae = [s[1] for s in sorted(zip(lens, formulae))]
     else:
         formulae = [(Formula([1]),'1')]
     return formulae
@@ -404,3 +506,268 @@ def get_factor_codings(graded_subsets_of_factors):
     else:
         codings = {}
     return codings
+
+def maximal(ancova):
+    """
+    Return an ANCOVA formula with only the maximal elements
+    for each expression. 
+    """
+    result = []
+    for expr in ancova.graded_dict:
+        maximal = simplicial_complex(*[s for _, s in ancova.sequence(expr)])[1]
+        for m in maximal:
+            result.append((expr, m))
+    return ANCOVA(*result)
+
+def concat(*ancovas):
+    """
+    Create a new ANCOVA formula by concatenating a sequence
+    of ANCOVA formulae.
+
+    Note: this is not commutatitive because the
+    order in which the (expr, [factors]) appear in the
+    initiating sequence changes the resulting formula.
+
+    >>> x = Term('x'); f = Factor('f', range(3)); h = Factor('h', range(4))
+    >>> a1 = ANCOVA((x,f))
+    >>> a2 = ANCOVA((x,h))
+    >>> concat(a1,a2).formula
+    Formula([h_3*x, f_0*x, h_1*x, f_2*x, 1, f_1*x, h_2*x])
+    >>> concat(a2,a1).formula
+    Formula([h_3*x, h_1*x, f_2*x, 1, f_1*x, h_2*x, h_0*x])
+    >>> 
+
+    """
+    result = []
+    for ancova in ancovas:
+        result += ancova.sequence()
+    return ANCOVA(*result)
+
+def is_ancova(obj):
+    """ Is obj an ANCOVA?
+    """
+    return hasattr(obj, "_ancova_flag")
+
+
+def typeI(response, ancova, recarray):
+    """
+    Produce an ANCOVA table
+    from a given ANCOVA formula
+    with type I sums of squares
+    where the order is based on the order of terms
+    in the contrast_names of ancova.
+
+    Inputs
+    ------
+
+    response: str
+              field name of response in recarray
+
+    ancova: ANCOVA
+            specifies the model to be fit
+
+    recarray: np.ndarray
+              should contain all field names in the terms of ancova
+              as well as response
+    """
+
+    Y = recarray[response]
+    X = ancova.formula.design(recarray, return_float=True)
+    model = OLS(Y, X)
+    results = model.fit()
+    SSE_F = np.sum(results.resid**2)
+    df_F = results.df_resid
+
+    model = OLS(Y, ancova.formulae[0].design(recarray, return_float=True))
+    results = model.fit()
+    SSE_old = np.sum(results.resid**2)
+    df_old = results.df_resid
+
+    names = []
+    sss = []
+    fs = []
+    dfs = []
+    pvals = []
+
+    names.append(ancova.contrast_names[0])
+    fs.append(((np.sum(Y**2) - SSE_old) / (Y.shape[0] - df_old)) / (SSE_F / df_F))
+    sss.append((np.sum(Y**2) - SSE_old))
+    dfs.append(Y.shape[0] - df_old)
+    pvals.append(f_dbn.sf(fs[-1], Y.shape[0]-df_old, df_F))
+
+    for d in range(1,len(ancova.formulae)):
+        terms = []
+        for f in ancova.formulae[:(d+1)]:
+            terms += list(f.terms)
+
+        # JT: this is not numerically efficient
+        # could be done by updating some factorization of the full X
+
+        X = Formula(terms).design(recarray, return_float=True)
+        model = OLS(Y, X)
+        results = model.fit()
+        SSE_new = np.sum(results.resid**2)
+        df_new = results.df_resid
+
+        sss.append(SSE_old - SSE_new)
+        dfs.append(df_old - df_new)
+        fs.append(((SSE_old-SSE_new) / (df_old - df_new)) / (SSE_F / df_F))
+        pvals.append(f_dbn.sf(fs[-1], df_old-df_new, df_new))
+        names.append(ancova.contrast_names[d])
+        SSE_old = SSE_new
+        df_old = df_new
+
+    # Add in the "residual row"
+    
+    sss.append(SSE_new)
+    dfs.append(df_new)
+    pvals.append(np.nan)
+    fs.append(np.nan)
+    names.append('Residuals')
+
+    result = np.array(names, np.dtype([('contrast','S%d' % max([len(n) for n in names]))]))
+    result = ML.rec_append_fields(result, ['SS', 'df', 'MS', 'F', 'p_value'], [sss, dfs, np.array(sss) / np.array(dfs), fs, pvals])
+    return result
+
+def typeII(response, ancova, recarray):
+    """
+    Produce an ANCOVA table
+    from a given ANCOVA formula
+    with type II sums of squares.
+
+    Inputs
+    ------
+
+    response: str
+              field name of response in recarray
+
+    ancova: ANCOVA
+            specifies the model to be fit
+
+    recarray: np.ndarray
+              should contain all field names in the terms of ancova
+              as well as response
+    """
+
+    Y = recarray[response]
+    X = ancova.formula.design(recarray, return_float=True)
+    model = OLS(Y, X)
+    results = model.fit()
+    SSE_F = np.sum(results.resid**2)
+    df_F = results.df_resid
+
+    names = []
+    sss = []
+    fs = []
+    dfs = []
+    pvals = []
+
+    for name, expr_factors in zip(ancova.contrast_names,
+                                  ancova.sequence()):
+        expr, factors = expr_factors
+        F = ancova.all_but_above(expr, factors)
+        C = ancova.contrasts[name]
+        XF, contrast_matrices = F.formula.design(recarray, contrasts={'C':C})
+        modelF = OLS(Y, XF)
+        resultsF = modelF.fit()
+
+        SSEF = np.sum(resultsF.resid**2)
+        dfF = resultsF.df_resid
+        ftest = resultsF.f_test(contrast_matrices['C'])
+
+        SSER = SSEF + ftest.fvalue * ftest.df_num * (SSEF / dfF)
+        dfR = dfF + ftest.df_num
+
+        sss.append(SSER - SSEF)
+        dfs.append(ftest.df_num)
+        fs.append(((SSER - SSEF) / (dfR - dfF)) / (SSE_F / df_F))
+        pvals.append(f_dbn.sf(fs[-1], dfR-dfF, df_F))
+        names.append(name)
+
+    # Add in the "residual row"
+    
+    sss.append(SSE_F)
+    dfs.append(df_F)
+    pvals.append(np.nan)
+    fs.append(np.nan)
+    names.append('Residuals')
+
+    result = np.array(names, np.dtype([('contrast','S%d' % max([len(n) for n in names]))]))
+    result = ML.rec_append_fields(result, ['SS', 'df', 'MS', 'F', 'p_value'], [sss, dfs, np.array(sss) / np.array(dfs), fs, pvals])
+    return result
+
+        
+if __name__ == "__main__":
+
+    import urllib
+    import matplotlib.mlab as ML
+    from StringIO import StringIO
+    from terms import fromrec
+    
+    s= StringIO()
+    s.write(urllib.urlopen('http://stats191.stanford.edu/data/salary.csv').read())
+    s.seek(0)
+    d = ML.csv2rec(s)
+    terms = fromrec(d)
+
+    f = ANCOVA(1, terms['e'],terms['p'],(1,(terms['e'],terms['p'])))
+    ANCOVA.add_intercept = False
+    f2 = ANCOVA(terms['e'],(1,(terms['e'],terms['p'])))
+    ANCOVA.add_intercept = True
+    f3 = ANCOVA((1,(terms['e'],terms['p'])))
+    
+def typeIII(response, ancova, recarray):
+    """
+    Produce an ANCOVA table
+    with type III sum of squares
+    from a given ANCOVA formula.
+
+    Inputs
+    ------
+
+    response: str
+              field name of response in recarray
+
+    ancova: ANCOVA
+            specifies the model to be fit
+
+    recarray: np.ndarray
+              should contain all field names in the terms of ancova
+              as well as response
+    """
+
+    X = ancova.formula.design(recarray, return_float=True)
+    Y = recarray[response]
+    model = OLS(Y, X)
+
+    results = model.fit()
+    SSE_F = np.sum(results.resid**2)
+    df_F = results.df_resid
+
+    names = []
+    fs = []
+    dfs = []
+    sss = []
+    pvals = []
+    for contrast in ancova.contrast_names:
+        r = results.f_test(ancova.contrast_matrices[contrast])
+        names.append(contrast)
+        fs.append(r.fvalue)
+        dfs.append(r.df_num)
+        pvals.append(r.pvalue)
+        sss.append(r.fvalue * results.scale * r.df_num)
+
+    # Add in the "residual row"
+    
+    sss.append(SSE_F)
+    dfs.append(df_F)
+    pvals.append(np.nan)
+    fs.append(np.nan)
+    names.append('Residuals')
+
+    result = np.array(names, np.dtype([('contrast','S%d' % max([len(n) for n in names]))]))
+    result = ML.rec_append_fields(result, ['SS', 'df', 'MS', 'F', 'p_value'], [sss, dfs, np.array(sss) / np.array(dfs), fs, pvals])
+    return result
+
+## from pkg_resources import resource_stream
+## data = scipy.io.loadmat(resource_stream("formula","data/salary.csv"))
