@@ -3,7 +3,7 @@ from formula import Formula
 
 class Term(sympy.Symbol):
     """A sympy.Symbol type to represent a term an a regression model
-    
+
     Terms can be added to other sympy expressions with the single
     convention that a term plus itself returns itself.
 
@@ -59,7 +59,7 @@ class FactorTerm(Term):
 
 class Factor(object):
     """ A qualitative variable in a regression model
-    
+
     A Factor is similar to R's factor. The levels of the Factor can be
     either strings or ints.
     """
@@ -86,14 +86,15 @@ class Factor(object):
         # Check whether they can all be cast to strings or ints without
         # loss.
         levelsarr = np.asarray(levels)
-        if levelsarr.ndim == 0 and levelsarr.dtype.kind == 'S':
+        if levelsarr.ndim == 0 and levelsarr.dtype.kind in ('S', 'O'):
             levelsarr = np.asarray(list(levels))
-        
-        if levelsarr.dtype.kind != 'S': # the levels are not strings
+
+        if levelsarr.dtype.kind not in ('S', 'O'):
+            # the levels are not strings/objects
             if not np.alltrue(np.equal(levelsarr, np.round(levelsarr))):
                 raise ValueError('levels must be strings or ints')
             levelsarr = levelsarr.astype(np.int)
-            
+
         self.levels = list(levelsarr)
         self.name = name
         self._char = char
@@ -105,7 +106,7 @@ class Factor(object):
                              `['drop_reference',
                                'main_effect',
                                'indicator']`)
-            
+
         self.coding = coding
         if reference is None:
             self.reference = self.levels[0]
@@ -113,7 +114,7 @@ class Factor(object):
             if reference not in self.levels:
                 raise ValueError('reference should an element of levels')
             self.reference = reference
-            
+
     def __getitem__(self, level):
         """
         self.get_term(level)
@@ -158,7 +159,7 @@ class Factor(object):
         of the factor.
         """
         if not hasattr(self, "_indicator"):
-            self._indicator = Formula([FactorTerm(self.name, l) for l in 
+            self._indicator = Formula([FactorTerm(self.name, l) for l in
                                      self.levels], char=self._char)
         return self._indicator
 
@@ -168,7 +169,7 @@ class Factor(object):
         Return the formula of the Factor = getattr(self, self.coding)
         """
         return getattr(self, self.coding)
-    
+
     @staticmethod
     def fromcol(col, name):
         """ Create a Factor from a column array.
@@ -233,7 +234,7 @@ def fromrec(recarray):
 
     result = {}
     for n, d in recarray.dtype.descr:
-        if d[1] == 'S':
+        if d[1] in ('S', 'O'):
             result[n] = Factor(n, np.unique(recarray[n]))
         else:
             result[n] = Term(n)

@@ -60,7 +60,7 @@ like the following::
     30           1 82 59  4838
     attr(,"assign")
     [1] 0 1 2 3
-    >                                     
+    >
 
 With the Formula, it looks like this:
 
@@ -135,7 +135,7 @@ class Formula(object):
     The expressions may depend on additional Symbol instances,
     giving a non-linear regression model.
     """
-    # This flag is defined to avoid using isinstance 
+    # This flag is defined to avoid using isinstance
     _formula_flag = True
 
     def __init__(self, seq, char = 'b'):
@@ -175,7 +175,7 @@ class Formula(object):
 
     def _getmean(self):
         """ Expression for mean
-        
+
         Expression for the mean, expressed as a linear combination of
         terms, each with dummy variables in front.
         """
@@ -200,9 +200,9 @@ class Formula(object):
         return getparams(self.mean)
 
     def _getdiff(self):
-        p = list(set(getparams(self.mean)))
-        p.sort()
-        return [s.doit() for s in sympy.diff(self.mean, p)]
+        params = list(set(getparams(self.mean)))
+        params.sort()
+        return [sympy.diff(self.mean, p).doit() for p in params]
     design_expr = property(_getdiff)
 
     def _getdtype(self):
@@ -240,7 +240,7 @@ class Formula(object):
            The expression to be changed
         new : sympy.Basic
            The value to change it to.
-        
+
         Returns
         -------
         newf : Formula
@@ -267,14 +267,14 @@ class Formula(object):
             if t in l1:
                 l1.remove(t)
         return Formula(l1)
-    
+
     def __repr__(self):
         return """Formula(%s)""" % `list(self.terms)`
 
     def __add__(self, other):
         """
         Create a new Formula by combining terms
-        of other with those of self. 
+        of other with those of self.
 
         >>> x, y, z = [Term(l) for l in 'xyz']
         >>> f1 = Formula([x,y,z])
@@ -286,7 +286,7 @@ class Formula(object):
         [1, y]
         >>> sorted(f3.terms)
         [1, x, y, z]
-        >>>         
+        >>>
         """
 
         if hasattr(other, 'formula'):
@@ -302,7 +302,7 @@ class Formula(object):
     def __mul__(self, other):
         """
         Create a new Formula by combining terms
-        of other with those of self. 
+        of other with those of self.
 
         >>> x, y, z = [Term(l) for l in 'xyz']
         >>> f1 = Formula([x,y,z])
@@ -314,7 +314,7 @@ class Formula(object):
         [1, y]
         >>> sorted(f3.terms)
         [1, x, y, z]
-        >>>         
+        >>>
         """
 
         if hasattr(other, 'formula'):
@@ -357,8 +357,8 @@ class Formula(object):
         # Using the random offset will minimize the possibility
         # of this happening.
 
-        # This renaming is here principally because of the 
-        # intercept. 
+        # This renaming is here principally because of the
+        # intercept.
 
         random_offset = np.random.random_integers(low=0, high=2**30)
 
@@ -391,16 +391,16 @@ class Formula(object):
         # the natural splines, etc. You can represent natural splines
         # with sympy but the expression is pretty awful.
 
-        _namespace = {}; 
+        _namespace = {};
         _add_aliases_to_namespace(_namespace, *d)
 
         self._f = sympy.lambdify(newparams + newterms, d, (_namespace, "numpy"))
 
-        # The input to self.design will be a recarray of that must 
+        # The input to self.design will be a recarray of that must
         # have field names that the Formula will expect to see.
         # However, if any of self.terms are FactorTerms, then the field
         # in the recarray will not actually be in the Term.
-        # 
+        #
         # For example, if there is a Factor 'f' with levels ['a','b'],
         # there will be terms 'f_a' and 'f_b', though the input to
         # design will have a field named 'f'. In this sense,
@@ -418,7 +418,7 @@ class Formula(object):
         preterm = list(set(preterm))
 
         # There is also an argument for parameters that are not
-        # Terms. 
+        # Terms.
 
         self._dtypes = {'param':np.dtype([(str(p), np.float) for p in params]),
                         'term':np.dtype([(str(t), np.float) for t in terms]),
@@ -480,7 +480,7 @@ class Formula(object):
         # The term_recarray is essentially the same as preterm_recarray,
         # except that all factors in self are expanded
         # into their respective binary columns.
-        term_recarray = np.zeros(preterm_recarray.shape[0], 
+        term_recarray = np.zeros(preterm_recarray.shape[0],
                                  dtype=self._dtypes['term'])
         for t in self.__terms:
             if not is_factor_term(t):
@@ -508,7 +508,7 @@ class Formula(object):
         # I think it is because the lambda evaluates sympy.Number(1) to 1
         # and not an array.
         D_tuple = [np.asarray(w) for w in D]
-        
+
         need_to_modify_shape = []
         OK_row_shapes = []
         for i, row in enumerate(D_tuple):
@@ -554,7 +554,7 @@ class Formula(object):
             for key, cf in contrasts.items():
                 if not is_formula(cf):
                     cf = Formula([cf])
-                L = cf.design(input, param=param_recarray, 
+                L = cf.design(input, param=param_recarray,
                               return_float=True)
                 cmatrices[key] = contrast_from_cols_or_rows(L, _D, pseudo=pinvD)
             return D, cmatrices
@@ -584,7 +584,7 @@ def is_formula(obj):
 
 
 def getparams(expression):
-    """ Return the parameters of an expression that are not Term 
+    """ Return the parameters of an expression that are not Term
     instances but are instances of sympy.Symbol.
 
     Examples
@@ -597,7 +597,7 @@ def getparams(expression):
     _b0*x + _b1*y + _b2*z
     >>> getparams(f.mean)
     [_b0, _b1, _b2]
-    >>>                 
+    >>>
     >>> th = sympy.Symbol('theta')
     >>> f.mean*sympy.exp(th)
     (_b0*x + _b1*y + _b2*z)*exp(theta)
