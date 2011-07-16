@@ -29,7 +29,7 @@ def html():
     figures_dest_path = 'build/html/pyplots'
     if os.path.exists(figures_dest_path):
         shutil.rmtree(figures_dest_path)
-    shutil.copytree('pyplots', figures_dest_path)
+#    shutil.copytree('pyplots', figures_dest_path)
 
 def latex():
     check_build()
