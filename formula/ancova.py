@@ -1,12 +1,13 @@
 import numpy as np
 import sympy
-from formula import Formula, I
-from terms import Factor, is_term, is_factor, Term # Term for docstrings
-from utils import factor_codings, simplicial_complex
 
 from scipy.stats import f as f_dbn
 from scikits.statsmodels.api import OLS
 import matplotlib.mlab as ML
+
+from .formulae import Formula, I
+from .parts import Factor, is_term, is_factor, Term # Term for docstrings
+from .utils import factor_codings, simplicial_complex
 
 class ANCOVA(object):
 
@@ -700,9 +701,8 @@ def typeII(response, ancova, recarray):
 if __name__ == "__main__":
 
     import urllib
-    import matplotlib.mlab as ML
     from StringIO import StringIO
-    from terms import fromrec
+    from parts import fromrec
 
     s= StringIO()
     s.write(urllib.urlopen('http://stats191.stanford.edu/data/salary.csv').read())

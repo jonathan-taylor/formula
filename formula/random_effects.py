@@ -1,5 +1,6 @@
 import numpy as np
-from formula import Formula
+
+from .formulae import Formula
 
 class RandomEffects(Formula):
     """ Covariance matrices for common random effects analyses.

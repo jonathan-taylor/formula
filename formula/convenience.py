@@ -1,7 +1,8 @@
 import numpy as np
 from itertools import combinations
-from terms import Factor, Term
-from formula import Formula
+
+from .parts import Factor, Term
+from .formulae import Formula
 
 
 def make_recarray(rows, names, dtypes=None):

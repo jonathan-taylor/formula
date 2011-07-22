@@ -1,5 +1,5 @@
 import sympy, numpy as np
-from formula import Formula
+from .formulae import Formula
 
 class Term(sympy.Symbol):
     """A sympy.Symbol type to represent a term an a regression model

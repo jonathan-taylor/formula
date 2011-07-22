@@ -1,13 +1,12 @@
 import numpy as np
-from formula.terms import Factor
 import sympy
+
 from string import uppercase
 from StringIO import StringIO
-import matplotlib.mlab as ML
 import nose.tools as nt
 
 from os import remove
-from formula.terms import Term, Factor
+from formula.parts import Term, Factor
 from formula.ancova import ANCOVA
 import matplotlib.mlab as ML
 import tempfile, rpy2.robjects

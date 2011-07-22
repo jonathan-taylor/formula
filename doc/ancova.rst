@@ -34,7 +34,7 @@ Let's try this with the ANCOVA model.
    import matplotlib.mlab as ML
    from pkg_resources import resource_stream
    salary = ML.csv2rec(resource_stream("formula", "data/salary.csv"))
-   from formula.terms import fromrec
+   from formula.parts import fromrec
    from formula.ancova import *
    terms = fromrec(salary)
    x = terms['x']; e = terms['e']; p = terms['p']
