@@ -6,7 +6,7 @@ from scikits.statsmodels.api import OLS
 import matplotlib.mlab as ML
 
 from .formulae import Formula, I
-from .parts import Factor, is_term, is_factor, Term # Term for docstrings
+from .parts import Factor, is_factor, Term # Term for docstrings
 from .utils import factor_codings, simplicial_complex
 
 class ANCOVA(object):
@@ -20,6 +20,8 @@ class ANCOVA(object):
     Similarly, if there is just one factor, entries of the
     sequence can be of the form (expr, factor).
 
+    Examples
+    --------
     >>> e = Factor('E', ['B', 'M', 'P']) # "B": bachelors, "M":masters, "P":phd
     >>> p = Factor('P', ['M', 'L']) # "M":management, "L":labor
     >>> x = Term('X')
@@ -42,9 +44,7 @@ class ANCOVA(object):
     >>> f = ANCOVA((x,p),(x,e2))
     >>> f.formula
     Formula([1, P_M*X, P_L*X, E_M*X, E_P*X])
-
     """
-
     add_intercept=True
     add_main_effects=False
 
@@ -114,24 +114,23 @@ class ANCOVA(object):
         constructing a design in which this factor
         is to be coded as "contrast".
 
+        Examples
+        --------
         >>> x = Term('x'); f = Factor('f', [2,1,3]) ; h =Factor('h', range(2))
         >>> a = ANCOVA((x,f), (x,(f,h)))
         >>> a.sorted_factors
         {'h': Factor('h', [0, 1]), 'f': Factor('f', [1, 2, 3])}
-        >>>
 
         The ordering of the levels of the factors
         changes which columns are produced when
         a factor is coded as a contrast.
 
-        >> x = Term('x'); f = Factor('f', [2,1,3]) ; h =Factor('h', range(2))
+        >>> x = Term('x'); f = Factor('f', [2,1,3]) ; h =Factor('h', range(2))
         >>> a = ANCOVA((x,h), (x,(f,h)))
 
         In this example, in the "x:f:h" term, "f" is coded
         as a contrast and its "first" level is dropped. This
         is the "first" of the sorted levels of "f".
-
-
         """
         if not hasattr(self, "_sorted_factors"):
             self._sorted_factors = {}
@@ -149,11 +148,12 @@ class ANCOVA(object):
         Return R's interpretation of how each (expr, [factors])
         instance in the Formula should be coded.
 
+        Examples
+        --------
         >>> x = Term('x'); f = Factor('f', range(3)) ; h =Factor('h', range(2))
         >>> a = ANCOVA((x,f), (x,(f,h)))
         >>> a.codings
         {1: {}, x: {('f',): [('f', 'indicator')], ('f', 'h'): [('f', 'indicator'), ('h', 'contrast')]}}
-
         """
         if not hasattr(self, "_codings"):
             self._codings = {}
@@ -184,11 +184,13 @@ class ANCOVA(object):
         numerical terms in the ANCOVA.
         Each numerical term yields several
 
+        Examples
+        --------
         >>> x = Term('x'); f = Factor('f', [2,1,3]) ; h =Factor('h', range(2))
         >>> a = ANCOVA((x,f), (x,(f,h)))
-        >>> a.contrasts
-        {'I(x):f': Formula([f_1*x, f_3*x, f_2*x]), 'I(1):1': Formula([1]), 'I(x):f:h': Formula([f_2*h_1*x, f_1*h_1*x, f_3*h_1*x])}
-
+        >>> cs = a.contrasts
+        >>> sorted(cs.items()) # to give predictable order from dict for doctest
+        [('1', Formula([1])), ('I(x):f', Formula([f_1*x, f_2*x, f_3*x])), ('I(x):f:h', Formula([f_1*h_1*x, f_2*h_1*x, f_3*h_1*x]))]
         """
         if not hasattr(self, "_contrasts"):
             self._contrasts = {}
@@ -221,6 +223,8 @@ class ANCOVA(object):
         The column slices for corresponding contrast matrices.
         See the docstring of `ANCOVA.contrast_matrices`.
 
+        Examples
+        --------
         >>> x = Term('x'); f = Factor('f', [2,1,3]) ; h =Factor('h', range(2))
         >>> a = ANCOVA((x,f), (x,(f,h)))
         >>> a.slices['I(x):f']
@@ -228,10 +232,8 @@ class ANCOVA(object):
 
         Note
         ====
-
         This implicitly assumes that default_coding is
         "main_effect".
-
         """
         if not hasattr(self, '_formulae'):
             self.contrasts
@@ -251,21 +253,20 @@ class ANCOVA(object):
         numerical terms in the ANCOVA.
         Each numerical term yields several contrasts.
 
+        Examples
+        --------
         >>> x = Term('x'); f = Factor('f', [2,1,3]) ; h =Factor('h', range(2))
         >>> a = ANCOVA((x,f), (x,(f,h)))
 
         >>> a.contrast_matrices['I(x):f']
-
         array([[ 0.,  1.,  0.,  0.,  0.,  0.,  0.],
                [ 0.,  0.,  1.,  0.,  0.,  0.,  0.],
                [ 0.,  0.,  0.,  1.,  0.,  0.,  0.]])
 
 
-        Note
-        ====
-
-        This implicitly assumes that default_coding is
-        "main_effect".
+        Notes
+        =====
+        This implicitly assumes that default_coding is "main_effect".
 
         Not all contrasts are estimable depending on the design
         matrix. Hence, when these contrasts are used to compute F-statistics
@@ -273,9 +274,7 @@ class ANCOVA(object):
         the projection of the rows of the contrast matrices onto the
         row space of the design matrix. Consistent contrast matrices
         can be found using `formula.utils.contrast_from_cols_or_rows`
-
         """
-
         p = len(self.formula.terms)
         matrices = {}
         for crep in self._contrast_names:
@@ -293,11 +292,12 @@ class ANCOVA(object):
         Return the canonical formulae, one for each item
         in self.sequence()
 
+        Examples
+        --------
         >>> x = Term('x'); f = Factor('f', [2,1,3]) ; h =Factor('h', range(2))
         >>> a = ANCOVA((x,f), (x,(f,h)))
         >>> a.formulae
-        [Formula([1]), Formula([f_1*x, f_3*x, f_2*x]), Formula([f_2*h_1*x, f_1*h_1*x, f_3*h_1*x])]
-
+        [Formula([1]), Formula([f_1*x, f_2*x, f_3*x]), Formula([f_1*h_1*x, f_2*h_1*x, f_3*h_1*x])]
         """
         if not hasattr(self, '_formulae'):
             self.contrasts
@@ -313,10 +313,7 @@ class ANCOVA(object):
         >>> a = ANCOVA((x,f), (x,(f,h)))
         >>> a.Rstr
         '1+I(x):f+I(x):f:h'
-        >>>
-
         """
-
         if not hasattr(self, '_contrast_names'):
             self.contrasts
         return '+'.join(self.contrast_names)
@@ -333,8 +330,7 @@ class ANCOVA(object):
         >>> i = Factor('i', range(3))
         >>> a = ANCOVA((x,f), (x,(f,h)),(x,(i,h)))
         >>> a.sequence()
-        [(1, []), (x, (Factor('f', [0, 1, 2]),)), (x, (Factor('f', [0, 1, 2]), Factor('h', [0, 1]))), (x, (Factor('i', [0, 1, 2]), Factor('h', [0, 1])))]
-
+        [(1, ()), (x, (Factor('f', [0, 1, 2]),)), (x, (Factor('f', [0, 1, 2]), Factor('h', [0, 1]))), (x, (Factor('i', [0, 1, 2]), Factor('h', [0, 1])))]
         """
         result = []
         if expr is None:
@@ -380,13 +376,12 @@ class ANCOVA(object):
         Create a Formula using R's rules for
         coding factors.
 
-
+        Examples
+        --------
         >>> x = Term('x'); f = Factor('f', range(3)) ; h =Factor('h', range(2))
         >>> a=ANCOVA((x,f), (x,(f,h)))
         >>> a.formula
-        Formula([f_0*x, f_1*h_1*x, f_2*x, 1, f_0*h_1*x, f_1*x, f_2*h_1*x])
-        >>>
-
+        Formula([1, f_0*x, f_1*x, f_2*x, f_0*h_1*x, f_1*h_1*x, f_2*h_1*x])
         """
         if self.formulae:
             terms = []
@@ -398,19 +393,33 @@ class ANCOVA(object):
 
     # Methods
 
-    def delete_terms(self, *terms):
-        """
-        >>> x = Term('x'); f = Factor('f', range(3)) ; h =Factor('h', range(2))
+    def delete_terms(self, *expr_factor_tuples):
+        """ Delete `expr_factor_tuples` definitions from self
+
+        Parameters
+        ----------
+        \\*expr_factor_tuples : arguments (variable number)
+            zero or more expression factor tuples (see class docstring)
+
+        Returns
+        -------
+        reduced_anova : ANOVA instance
+            ANOVA with expr_factor_tuples removed
+
+        Examples
+        --------
+        >>> x = Term('x'); f = Factor('f', range(3)); h =Factor('h', range(2))
         >>> a=ANCOVA((x,f), (x,(f,h)))
         >>> a
-        ANCOVA((1, ()),(x, ('f',)),(x, ('f', 'h')))
+        ANCOVA([(1, ()), (x, (Factor('f', [0, 1, 2]),)), (x, (Factor('f', [0, 1, 2]), Factor('h', [0, 1])))])
         >>> a.delete_terms((x,f))
-        ANCOVA((1, ()),(x, ('f', 'h')))
-
+        ANCOVA([(1, ()), (x, (Factor('f', [0, 1, 2]), Factor('h', [0, 1])))])
         """
+        # Get expr_factor_tuples from current ANCOVA
         result = self.sequence()
-        for term in ANCOVA(*terms).sequence():
-            result.remove(term)
+        to_remove = ANCOVA(*expr_factor_tuples).sequence()
+        for expr_factor in to_remove:
+            result.remove(expr_factor)
         return ANCOVA(*result)
 
     def __mul__(self, other):
@@ -435,7 +444,6 @@ class ANCOVA(object):
         >>> x = Term('x'); f = Factor('f', range(3)); h = Factor('h', range(4))
         >>> a1 = ANCOVA((x,f))
         >>> a2 = ANCOVA((x,h))
-        >>> a1 + a2
         >>> a1 + a2
         ANCOVA([(1, ()), (x, (Factor('f', [0, 1, 2]),)), (x, (Factor('h', [0, 1, 2, 3]),))])
 
@@ -495,13 +503,11 @@ def get_factor_codings(graded_subsets_of_factors):
     which will be coded with all their degrees of freedom ("indicator")
     and which will be coded as contrasts ("contrast").
     """
-    formula = Formula([])
-    all_factors = set([])
     graded_subsets_of_names = []
 
     for order in graded_subsets_of_factors:
         graded_subsets_of_names.extend([sorted([f.name for f in factors]) for
-                                          factors in graded_subsets_of_factors[order]])
+                                        factors in graded_subsets_of_factors[order]])
     if graded_subsets_of_names != [[]]:
         codings = factor_codings(*[sorted(f) for f in graded_subsets_of_names])
     else:
@@ -533,11 +539,9 @@ def concat(*ancovas):
     >>> a1 = ANCOVA((x,f))
     >>> a2 = ANCOVA((x,h))
     >>> concat(a1,a2).formula
-    Formula([h_3*x, f_0*x, h_1*x, f_2*x, 1, f_1*x, h_2*x])
+    Formula([1, f_0*x, f_1*x, f_2*x, h_1*x, h_2*x, h_3*x])
     >>> concat(a2,a1).formula
-    Formula([h_3*x, h_1*x, f_2*x, 1, f_1*x, h_2*x, h_0*x])
-    >>>
-
+    Formula([1, h_0*x, h_1*x, h_2*x, h_3*x, f_1*x, f_2*x])
     """
     result = []
     for ancova in ancovas:
