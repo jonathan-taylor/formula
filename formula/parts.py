@@ -133,6 +133,10 @@ class Factor(object):
         return self.formula["%s_%s" % (self.name, str(level))]
 
     @property
+    def terms(self):
+        return [self.get_term(L) for L in self.levels]
+
+    @property
     def main_effect(self):
         terms = list(self.indicator.terms)
         ref_term = self.get_term(self.reference)
