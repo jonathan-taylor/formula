@@ -82,6 +82,7 @@ def make_recarray(rows, names, dtypes=None):
             nrows = np.array([(r,) for r in nrows], dtype)
     return np.array(nrows, dtype)
 
+
 def terms_from_rec(rec, keep=[], drop=[]):
     """ Construct terms from recarray
 
@@ -205,3 +206,39 @@ def define(name, expr):
     """
     v = vectorize(expr)
     return aliased_function(name, v)(Term('t'))
+
+
+def terms(*names):
+    ''' Return list of terms with names given by `names`
+
+    This is just a convenience in defining a set of terms, and is the
+    equivalent of ``sympy.symbols`` for defining symbols in sympy. 
+
+    Parameters
+    ----------
+    *names : str or sequence of str
+       If a single str, can specify multiple ``Term``s with string
+       containing space or ',' as separator. 
+
+    Returns
+    -------
+    ts : list
+       list of Term instance objects named from `names`
+
+    Examples
+    --------
+    >>> terms('a', 'b', 'c')
+    (a, b, c)
+    >>> terms('a, b, c')
+    (a, b, c)
+    '''
+    # parse separated single string
+    if len(names) == 1:
+        name = names[0]
+        if isinstance(name, basestring):
+            for sep in ', ':
+                if sep in name:
+                    names = (n.strip() for n in name.split(sep))
+                    break
+    return tuple(Term(n) for n in names)
+
