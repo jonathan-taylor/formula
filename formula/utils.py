@@ -162,34 +162,24 @@ def simplicial_complex(*simplices):
         return faces, maximal[::-1], allf[::-1]
 
 def factor_codings(*factor_monomials):
-    """
-    Determine which factors to code with indicator variables
-    (using len(factor.levels) columns of 0s and 1s) or
-    contrast coding (using len(factor.levels)-1).
-    The elements of the sequence should be 
-    tuples of strings.
-    Further, the factors are assumed to be in *graded* order, that is
+    """ Find which factors to code with indicator or contrast variables
+
+    Determine which factors to code with indicator variables (using
+    len(factor.levels) columns of 0s and 1s) or contrast coding (using
+    len(factor.levels)-1).  The elements of the sequence should be tuples of
+    strings.  Further, the factors are assumed to be in *graded* order, that is
     [len(f) for f in factor_monomials] is assumed non-decreasing.
 
-
-    Notes 
-    =====
-
-    Even though the elements
-    of factor_monomials are assumed to be in graded order, 
-    the final result depends on the ordering of the strings of the factors
-    within each of the tuples.
-
+    Examples
+    --------
     >>> factor_codings(('b',), ('a',), ('b', 'c'), ('a','b','c'))
     {('b', 'c'): [('b', 'indicator'), ('c', 'contrast')], ('a',): [('a', 'contrast')], ('b',): [('b', 'indicator')], ('a', 'b', 'c'): [('a', 'contrast'), ('b', 'indicator'), ('c', 'indicator')]}
     >>> factor_codings(('a',), ('b',), ('b', 'c'), ('a','b','c'))
     {('b', 'c'): [('b', 'indicator'), ('c', 'contrast')], ('a',): [('a', 'indicator')], ('b',): [('b', 'contrast')], ('a', 'b', 'c'): [('a', 'contrast'), ('b', 'indicator'), ('c', 'indicator')]}
-    >>> 
 
-    Here is a version with debug strings to 
-    see what is happening.
+    Here is a version with debug strings to see what is happening:
 
-    >>> factor_codings(('a',), ('b', 'c'), ('a','b','c'))
+    >>> factor_codings(('a',), ('b', 'c'), ('a','b','c')) #doctest: +SKIP
     Adding a from ('a',) as indicator because we have not seen any factors yet.
     Adding b from ('b', 'c') as indicator because set([('c',), ()]) is not a subset of set([(), ('a',)])
     Adding c from ('b', 'c') as indicator because set([(), ('b',)]) is not a subset of set([(), ('a',)])
@@ -197,10 +187,13 @@ def factor_codings(*factor_monomials):
     Adding b from ('a', 'b', 'c') as indicator because set([('c',), (), ('a', 'c'), ('a',)]) is not a subset of set([('b', 'c'), (), ('c',), ('b',), ('a',)])
     Adding c from ('a', 'b', 'c') as indicator because set([('a', 'b'), (), ('b',), ('a',)]) is not a subset of set([('b', 'c'), (), ('c',), ('b',), ('a',)])
     {('b', 'c'): [('b', 'indicator'), ('c', 'indicator')], ('a',): [('a', 'indicator')], ('a', 'b', 'c'): [('a', 'contrast'), ('b', 'indicator'), ('c', 'indicator')]}
-    >>>
 
+    Notes
+    -----
+    Even though the elements of factor_monomials are assumed to be in graded
+    order, the final result depends on the ordering of the strings of the
+    factors within each of the tuples.
     """
-
     lmax = 0
     from copy import copy
     already_seen = set([])
