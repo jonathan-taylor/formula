@@ -1,6 +1,11 @@
 import sympy, numpy as np
 from .formulae import Formula
 
+LETTERS_DIGITS = ('abcdefghijklmnopqrstuvwxyz'
+                  'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+                  '0123456789')
+
+
 class Term(sympy.Symbol):
     """A sympy.Symbol type to represent a term an a regression model
 
@@ -196,10 +201,10 @@ class Factor(object):
         >>> data = np.array([(3,'a'),(4,'a'),(5,'b'),(3,'b')], np.dtype([('x', np.float), ('y', 'S1')]))
         >>> f1 = Factor.fromcol(data['y'], 'y')
         >>> f2 = Factor.fromcol(data['x'], 'x')
-        >>> d = f1.design(data)
+        >>> d = f1.formula.design(data)
         >>> print d.dtype.descr
         [('y_a', '<f8'), ('y_b', '<f8')]
-        >>> d = f2.design(data)
+        >>> d = f2.formula.design(data)
         >>> print d.dtype.descr
         [('x_3', '<f8'), ('x_4', '<f8'), ('x_5', '<f8')]
         """
@@ -262,12 +267,11 @@ def stratify(factor, variable):
     Examples
     --------
     >>> f = Factor('a', ['x','y'])
-    >>> sf = f.stratify('theta')
+    >>> sf = stratify(f, 'theta')
     >>> sf.mean
     _theta0*a_x + _theta1*a_y
     """
-    if not set(str(variable)).issubset(lowercase +
-                                       uppercase + '0123456789'):
+    if not set(str(variable)).issubset(LETTERS_DIGITS):
         raise ValueError('variable should be interpretable as a '
                          'name and not have anything but digits '
                          'and letters')
