@@ -64,29 +64,25 @@ like the following::
 
 With the Formula, it looks like this:
 
->>> r
-rec.array([(43, 51, 30, 39, 61, 92, 45), (63, 64, 51, 54, 63, 73, 47),
-       (71, 70, 68, 69, 76, 86, 48), (61, 63, 45, 47, 54, 84, 35),
-       (81, 78, 56, 66, 71, 83, 47), (43, 55, 49, 44, 54, 49, 34),
-       (58, 67, 42, 56, 66, 68, 35), (71, 75, 50, 55, 70, 66, 41),
-       (72, 82, 72, 67, 71, 83, 31), (67, 61, 45, 47, 62, 80, 41),
-       (64, 53, 53, 58, 58, 67, 34), (67, 60, 47, 39, 59, 74, 41),
-       (69, 62, 57, 42, 55, 63, 25), (68, 83, 83, 45, 59, 77, 35),
-       (77, 77, 54, 72, 79, 77, 46), (81, 90, 50, 72, 60, 54, 36),
-       (74, 85, 64, 69, 79, 79, 63), (65, 60, 65, 75, 55, 80, 60),
-       (65, 70, 46, 57, 75, 85, 46), (50, 58, 68, 54, 64, 78, 52),
-       (50, 40, 33, 34, 43, 64, 33), (64, 61, 52, 62, 66, 80, 41),
-       (53, 66, 52, 50, 63, 80, 37), (40, 37, 42, 58, 50, 57, 49),
-       (63, 54, 42, 48, 66, 75, 33), (66, 77, 66, 63, 88, 76, 72),
-       (78, 75, 58, 74, 80, 78, 49), (48, 57, 44, 45, 51, 83, 38),
-       (85, 85, 71, 71, 77, 74, 55), (82, 82, 39, 59, 64, 78, 39)],
-      dtype=[('y', '<i8'), ('x1', '<i8'), ('x2', '<i8'), ('x3', '<i8'), ('x4', '<i8'), ('x5', '<i8'), ('x6', '<i8')])
->>> x1 = Term('x1'); x3 = Term('x3')
->>> f = Formula([x1, x3, x1*x3]) I
+First read the same data as above:
+
+>>> from os.path import dirname, join as pjoin
+>>> import numpy as np
+>>> import formula
+>>> fname = pjoin(dirname(formula.__file__), 'data', 'supervisor.table')
+>>> r = np.recfromtxt(fname, names=True)
+
+Define the formula
+
+>>> from formula import terms, Formula
+>>> X1, X3 = terms('X1', 'X3')
+>>> f = Formula([X1, X3, X1*X3, 1])
 >>> f.mean
-_b0*x1 + _b1*x3 + _b2*x1*x3 + _b3
->>> # The I is the "intercept" term, I have explicity not
->>> # used R's default of adding it to everything.
+_b0*X1 + _b1*X3 + _b2*X1*X3 + _b3
+
+The 1 is the "intercept" term, I have explicity not used R's default of adding
+it to everything.
+
 >>> f.design(r)
 array([(51.0, 39.0, 1989.0, 1.0), (64.0, 54.0, 3456.0, 1.0),
        (70.0, 69.0, 4830.0, 1.0), (63.0, 47.0, 2961.0, 1.0),
@@ -102,17 +98,15 @@ array([(51.0, 39.0, 1989.0, 1.0), (64.0, 54.0, 3456.0, 1.0),
        (66.0, 50.0, 3300.0, 1.0), (37.0, 58.0, 2146.0, 1.0),
        (54.0, 48.0, 2592.0, 1.0), (77.0, 63.0, 4851.0, 1.0),
        (75.0, 74.0, 5550.0, 1.0), (57.0, 45.0, 2565.0, 1.0),
-       (85.0, 71.0, 6035.0, 1.0), (82.0, 59.0, 4838.0, 1.0)],
-      dtype=[('x1', '<f8'), ('x3', '<f8'), ('x1*x3', '<f8'), ('1', '<f8')])
+       (85.0, 71.0, 6035.0, 1.0), (82.0, 59.0, 4838.0, 1.0)], 
+      dtype=[('X1', '<f8'), ('X3', '<f8'), ('X1*X3', '<f8'), ('1', '<f8')])
 '''
-
-import warnings
 
 import sympy
 import numpy as np
 from utils import contrast_from_cols_or_rows
 
-from aliased import aliased_function, _add_aliases_to_namespace, vectorize
+from aliased import _add_aliases_to_namespace
 
 
 class Beta(sympy.symbol.Dummy):
@@ -247,7 +241,8 @@ class Formula(object):
 
         Examples
         --------
-        >>> s, t = [Term(l) for l in 'st']
+        >>> from formula import terms
+        >>> s, t = terms(*'st')
         >>> f, g = [sympy.Function(l) for l in 'fg']
         >>> form = Formula([f(t),g(s)])
         >>> newform = form.subs(g, sympy.Function('h'))
@@ -276,7 +271,10 @@ class Formula(object):
         Create a new Formula by combining terms
         of other with those of self.
 
-        >>> x, y, z = [Term(l) for l in 'xyz']
+        Examples
+        --------
+        >>> from formula import terms
+        >>> x, y, z = terms(*'xyz')
         >>> f1 = Formula([x,y,z])
         >>> f2 = Formula([y])+I
         >>> f3=f1+f2
@@ -288,15 +286,12 @@ class Formula(object):
         [1, x, y, z]
         >>>
         """
-
         if hasattr(other, 'formula'):
             other = other.formula
-
         if self.terms.shape == ():
             return other
         elif other.terms.shape == ():
             return self
-
         return self.__class__(np.unique(list(self.terms) + list(other.terms)))
 
     def __mul__(self, other):
@@ -304,7 +299,10 @@ class Formula(object):
         Create a new Formula by combining terms
         of other with those of self.
 
-        >>> x, y, z = [Term(l) for l in 'xyz']
+        Examples
+        --------
+        >>> from formula import terms
+        >>> x, y, z = terms(*'xyz')
         >>> f1 = Formula([x,y,z])
         >>> f2 = Formula([y])+I
         >>> f3=f1+f2
@@ -316,10 +314,8 @@ class Formula(object):
         [1, x, y, z]
         >>>
         """
-
         if hasattr(other, 'formula'):
             other = other.formula
-
         result = np.multiply.outer(self.terms, other.terms)
         f = self.__class__(result.reshape(-1))
         return f.unique
@@ -565,10 +561,17 @@ class Formula(object):
 
 I = Formula([sympy.Number(1)])
 
+def is_beta(obj):
+    """ Is obj a Beta?
+    """
+    return hasattr(obj, "_beta_flag")
+
+
 def is_term(obj):
     """ Is obj a Term?
     """
     return hasattr(obj, "_term_flag")
+
 
 def is_factor_term(obj):
     """ Is obj a FactorTerm?
@@ -589,7 +592,8 @@ def getparams(expression):
 
     Examples
     --------
-    >>> x, y, z = [Term(l) for l in 'xyz']
+    >>> from formula import terms
+    >>> x, y, z = terms(*'xyz')
     >>> f = Formula([x,y,z])
     >>> getparams(f)
     []
@@ -625,7 +629,8 @@ def getterms(expression):
 
     Examples
     --------
-    >>> x, y, z = [Term(l) for l in 'xyz']
+    >>> from formula import terms
+    >>> x, y, z = terms(*'xyz')
     >>> f = Formula([x,y,z])
     >>> getterms(f)
     [x, y, z]
