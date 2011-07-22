@@ -1,5 +1,6 @@
 import numpy as np
-from itertools import combinations
+
+from sympy.utilities.lambdify import implemented_function, lambdify
 
 from .parts import Factor, Term
 from .formulae import Formula
@@ -7,7 +8,7 @@ from .formulae import Formula
 
 def make_recarray(rows, names, dtypes=None):
     """ Create recarray from `rows` with field names `names`
-    
+
     Create a recarray with named columns from a list of rows and names
     for the columns. If dtype is None, the dtype is based on rows if it
     is an np.ndarray, else the data is cast as np.float. If dtypes are
@@ -29,23 +30,25 @@ def make_recarray(rows, names, dtypes=None):
 
     Examples
     --------
-    The following tests depend on machine byte order to pass
-    
+    We've used the ``#doctest:+ELLIPSIS option here to allow us not to care
+    either about the default integer size (i4 or i8), or the machine byte order
+    (<,>), in the record array dtype.
+
     >>> arr = np.array([[3,4],[4,6],[6,8]])
-    >>> make_recarray(arr, ['x','y'])
+    >>> make_recarray(arr, ['x','y']) # doctest:+ELLIPSIS
     array([[(3, 4)],
            [(4, 6)],
            [(6, 8)]], 
-          dtype=[('x', '<i8'), ('y', '<i8')])
+          dtype=[('x', ...), ('y', ...)])
     >>> r = make_recarray(arr, ['w', 'u'])
-    >>> make_recarray(r, ['x','y'])
+    >>> make_recarray(r, ['x','y']) # doctest:+ELLIPSIS
     array([[(3, 4)],
            [(4, 6)],
            [(6, 8)]], 
-          dtype=[('x', '<i8'), ('y', '<i8')])
-    >>> make_recarray([[3,4],[4,6],[7,9]], 'wv', [np.float, np.int])
+          dtype=[('x', ...), ('y', ...)])
+    >>> make_recarray([[3,4],[4,6],[7,9]], 'wv', [np.float, np.int]) # doctest:+ELLIPSIS
     array([(3.0, 4), (4.0, 6), (7.0, 9)], 
-          dtype=[('w', '<f8'), ('v', '<i8')])
+          dtype=[('w', ...), ('v', ...)])
     """
     # XXX This function is sort of one of convenience
     # Would be nice to use DataArray or something like that
@@ -157,14 +160,14 @@ def natural_spline(t, knots=None, order=3, intercept=False):
         n = 'ns_%d' % i
         def f(x, i=i):
             return x**i
-        s = aliased_function(n, f)
+        s = implemented_function(n, f)
         fns.append(s(t))
 
     for j, k in enumerate(knots):
         n = 'ns_%d' % (j+i+1,)
         def f(x, k=k, order=order):
             return (x-k)**order * np.greater(x, k)
-        s = aliased_function(n, f)
+        s = implemented_function(n, f)
         fns.append(s(t))
 
     if not intercept:
@@ -175,14 +178,17 @@ def natural_spline(t, knots=None, order=3, intercept=False):
 
 
 def define(name, expr):
-    """
-    Take an expression of 't' (possibly complicated)
-    and make it a '%s(t)' % name, such that
-    when it evaluates it has the right values.
+    """ Create function of t expression from arbitrary expression `expr`
+
+    Take an arbitrarily complicated expression `expr` of 't' and make it
+    an expression that is a simple function of t, of form ``'%s(t)' %
+    name`` such that when it evaluates (via ``lambdify``) it has the
+    right values.
 
     Parameters
     ----------
-    expr : sympy expression, with only 't' as a Symbol
+    expr : sympy expression
+       with only 't' as a Symbol
     name : str
 
     Returns
@@ -191,22 +197,27 @@ def define(name, expr):
 
     Examples
     --------
+    >>> from sympy import lambdify
     >>> t = Term('t')
     >>> expr = t**2 + 3*t
     >>> print expr
-    3*t + t**2
+    t**2 + 3*t
     >>> newexpr = define('f', expr)
     >>> print newexpr
     f(t)
-    >>> import aliased
-    >>> f = aliased.lambdify(t, newexpr)
+    >>> f = lambdify(t, newexpr)
     >>> f(4)
     28
     >>> 3*4+4**2
     28
     """
-    v = vectorize(expr)
-    return aliased_function(name, v)(Term('t'))
+    # make numerical implementation of expression
+    t = Term('t')
+    v = lambdify(t, expr)
+    # convert numerical implementation to sympy function
+    f = implemented_function(name, v)
+    # Return expression that is function of time
+    return f(t)
 
 
 def terms(*names):
