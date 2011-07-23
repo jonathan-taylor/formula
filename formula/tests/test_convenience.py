@@ -13,16 +13,19 @@ from nose.tools import assert_true, assert_equal, assert_raises
 
 
 def test_terms():
-    t, = terms('a')
+    t = terms('a')
+    assert_true(isinstance(t, Term))
     a, b, c = Term('a'), Term('b'), Term('c')
     assert_equal(t, a)
-    ts = terms('a', 'b', 'c')
+    ts = terms(('a', 'b', 'c'))
     assert_equal(ts, (a, b, c))
     # a string without separator chars returns one symbol.  This is the
-    # future sympy default. 
-    assert_equal(terms('abc'), (Term('abc'),))
+    # future sympy default.
+    assert_equal(terms('abc'), Term('abc'))
     # separators return multiple symbols
     assert_equal(terms('a b c'), (a, b, c))
     assert_equal(terms('a, b, c'), (a, b, c))
-    # nothing returns empty
-    assert_equal(terms(), ())
+    # no arg is an error
+    assert_raises(TypeError, terms)
+    # but empty arg returns empty tuple
+    assert_equal(terms(()), ())

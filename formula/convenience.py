@@ -1,5 +1,6 @@
 import numpy as np
 
+import sympy
 from sympy.utilities.lambdify import implemented_function, lambdify
 
 from .parts import Factor, Term
@@ -220,7 +221,7 @@ def define(name, expr):
     return f(t)
 
 
-def terms(*names):
+def terms(names, **kwargs):
     ''' Return list of terms with names given by `names`
 
     This is just a convenience in defining a set of terms, and is the
@@ -228,29 +229,29 @@ def terms(*names):
 
     Parameters
     ----------
-    *names : str or sequence of str
+    names : str or sequence of str
        If a single str, can specify multiple ``Term``s with string
        containing space or ',' as separator. 
+    \\**kwargs : keyword arguments
+       keyword arguments as for ``sympy.symbols``
 
     Returns
     -------
-    ts : list
-       list of Term instance objects named from `names`
+    ts : ``Term`` or tuple
+       ``Term`` instance or list of ``Term`` instance objects named from `names`
 
     Examples
     --------
-    >>> terms('a', 'b', 'c')
+    >>> terms(('a', 'b', 'c'))
     (a, b, c)
     >>> terms('a, b, c')
     (a, b, c)
+    >>> terms('abc')
+    abc
     '''
-    # parse separated single string
-    if len(names) == 1:
-        name = names[0]
-        if isinstance(name, basestring):
-            for sep in ', ':
-                if sep in name:
-                    names = (n.strip() for n in name.split(sep))
-                    break
-    return tuple(Term(n) for n in names)
-
+    syms = sympy.symbols(names, **kwargs)
+    try:
+        len(syms)
+    except TypeError:
+        return Term(syms.name)
+    return tuple(Term(s.name) for s in syms)
