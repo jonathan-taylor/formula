@@ -29,3 +29,10 @@ def test_terms():
     assert_raises(TypeError, terms)
     # but empty arg returns empty tuple
     assert_equal(terms(()), ())
+    # Test behavior of deprecated each_char kwarg
+    try:
+        res = terms('abc', each_char=False)
+    except TypeError:
+        return
+    assert_equal(res, Term('abc'))
+    assert_equal(terms('abc', each_char=True), (a, b, c))

@@ -4,6 +4,9 @@ import numpy as np
 
 import sympy
 
+from distutils.version import LooseVersion
+SYMPY_0p6 = LooseVersion(sympy.__version__) < LooseVersion('0.7.0')
+
 try:
     # matrix_rank in numpy >= 1.5.0
     from numpy.linalg import matrix_rank as rank
@@ -254,10 +257,9 @@ def make_dummy(name):
     -----
     The interface to Dummy changed between 0.6.7 and 0.7.0
     """
-    from distutils.version import LooseVersion
-    if LooseVersion(sympy.__version__) >= LooseVersion('0.7.0'):
-        return sympy.Dummy(name)
-    return sympy.Symbol(name, dummy=True)
+    if SYMPY_0p6:
+        return sympy.Symbol(name, dummy=True)
+    return sympy.Dummy(name)
 
 
 class BombError(Exception):

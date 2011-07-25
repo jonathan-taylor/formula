@@ -5,6 +5,7 @@ from sympy.utilities.lambdify import implemented_function, lambdify
 
 from .parts import Factor, Term
 from .formulae import Formula
+from .utils import SYMPY_0p6
 
 
 def make_recarray(rows, names, dtypes=None):
@@ -225,7 +226,10 @@ def terms(names, **kwargs):
     ''' Return list of terms with names given by `names`
 
     This is just a convenience in defining a set of terms, and is the
-    equivalent of ``sympy.symbols`` for defining symbols in sympy. 
+    equivalent of ``sympy.symbols`` for defining symbols in sympy.
+
+    We enforce the sympy 0.7.0 behavior of returning symbol "abc" from input
+    "abc", rthan than 3 symbols "a", "b", "c".
 
     Parameters
     ----------
@@ -249,9 +253,17 @@ def terms(names, **kwargs):
     >>> terms('abc')
     abc
     '''
+    if (SYMPY_0p6
+        and isinstance(names, basestring)
+        and not set(', ').intersection(names)):
+        if not kwargs.get('each_char', False):
+            # remove each_char (or no-op if absent)
+            kwargs.pop('each_char', None)
+            names = (names,)
     syms = sympy.symbols(names, **kwargs)
     try:
         len(syms)
     except TypeError:
         return Term(syms.name)
     return tuple(Term(s.name) for s in syms)
+
