@@ -75,7 +75,7 @@ First read the same data as above:
 Define the formula
 
 >>> from formula import terms, Formula
->>> X1, X3 = terms('X1', 'X3')
+>>> X1, X3 = terms(('X1', 'X3'))
 >>> f = Formula([X1, X3, X1*X3, 1])
 >>> f.mean
 _b0*X1 + _b1*X3 + _b2*X1*X3 + _b3
@@ -242,7 +242,7 @@ class Formula(object):
         Examples
         --------
         >>> from formula import terms
-        >>> s, t = terms(*'st')
+        >>> s, t = terms('s, t')
         >>> f, g = [sympy.Function(l) for l in 'fg']
         >>> form = Formula([f(t),g(s)])
         >>> newform = form.subs(g, sympy.Function('h'))
@@ -274,7 +274,7 @@ class Formula(object):
         Examples
         --------
         >>> from formula import terms
-        >>> x, y, z = terms(*'xyz')
+        >>> x, y, z = terms('x, y, z')
         >>> f1 = Formula([x,y,z])
         >>> f2 = Formula([y])+I
         >>> f3=f1+f2
@@ -302,7 +302,7 @@ class Formula(object):
         Examples
         --------
         >>> from formula import terms
-        >>> x, y, z = terms(*'xyz')
+        >>> x, y, z = terms('x, y, z')
         >>> f1 = Formula([x,y,z])
         >>> f2 = Formula([y])+I
         >>> f3=f1+f2
@@ -593,7 +593,7 @@ def getparams(expression):
     Examples
     --------
     >>> from formula import terms
-    >>> x, y, z = terms(*'xyz')
+    >>> x, y, z = terms('x, y, z')
     >>> f = Formula([x,y,z])
     >>> getparams(f)
     []
@@ -630,7 +630,7 @@ def getterms(expression):
     Examples
     --------
     >>> from formula import terms
-    >>> x, y, z = terms(*'xyz')
+    >>> x, y, z = terms('x, y, z')
     >>> f = Formula([x,y,z])
     >>> getterms(f)
     [x, y, z]
