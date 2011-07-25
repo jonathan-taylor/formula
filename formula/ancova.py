@@ -541,7 +541,7 @@ def concat(*ancovas):
     >>> concat(a1,a2).formula
     Formula([1, f_0*x, f_1*x, f_2*x, h_1*x, h_2*x, h_3*x])
     >>> concat(a2,a1).formula
-    Formula([1, h_0*x, h_1*x, h_2*x, h_3*x, f_1*x, f_2*x])
+    Formula([1, f_1*x, f_2*x, h_0*x, h_1*x, h_2*x, h_3*x])
     """
     result = []
     for ancova in ancovas:
