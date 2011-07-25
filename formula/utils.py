@@ -259,3 +259,14 @@ def make_dummy(name):
         return sympy.Dummy(name)
     return sympy.Symbol(name, dummy=True)
 
+
+class BombError(Exception):
+    pass
+
+
+class Bomber(object):
+    """ Raise exception for any attribute access """
+    def __init__(self, msg):
+        self.msg = msg
+    def __getattribute__(self, name):
+        raise BombError(self.msg)

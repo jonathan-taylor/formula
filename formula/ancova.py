@@ -2,12 +2,18 @@ import numpy as np
 import sympy
 
 from scipy.stats import f as f_dbn
-from scikits.statsmodels.api import OLS
+
+from .utils import Bomber
+try:
+    from scikits.statsmodels.api import OLS
+except ImportError:
+    OLS = Bomber('Need OLS from statsmodels')
 import matplotlib.mlab as ML
 
 from .formulae import Formula, I
 from .parts import Factor, is_factor, Term # Term for docstrings
 from .utils import factor_codings, simplicial_complex
+
 
 class ANCOVA(object):
 
