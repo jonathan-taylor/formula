@@ -1,8 +1,8 @@
 import numpy as np
 
-from sympy import Symbol
-
 from .formulae import Formula
+from .utils import make_dummy
+
 
 class RandomEffects(Formula):
     """ Covariance matrices for common random effects analyses.
@@ -56,8 +56,7 @@ class RandomEffects(Formula):
         q = self._terms.shape[0]
         self._counter = 0
         if sigma is None:
-            self.sigma = np.diag([Symbol('s2_%d' % i, dummy=True) for i in 
-                                  range(q)])
+            self.sigma = np.diag([make_dummy('s2_%d' % i) for i in range(q)])
         else:
             self.sigma = np.asarray(sigma)
         if self.sigma.shape != (q,q):

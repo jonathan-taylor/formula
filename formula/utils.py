@@ -2,6 +2,8 @@ from itertools import combinations
 
 import numpy as np
 
+import sympy
+
 try:
     # matrix_rank in numpy >= 1.5.0
     from numpy.linalg import matrix_rank as rank
@@ -235,4 +237,25 @@ def factor_codings(*factor_monomials):
         final_result.append((tuple(factor_monomial), result))
     return dict(final_result)
 
+
+def make_dummy(name):
+    """ Make dummy variable of given name
+
+    Parameters
+    ----------
+    name : str
+        name of dummy variable
+
+    Returns
+    -------
+    dum : `Dummy` instance
+
+    Notes
+    -----
+    The interface to Dummy changed between 0.6.7 and 0.7.0
+    """
+    from distutils.version import LooseVersion
+    if LooseVersion(sympy.__version__) >= LooseVersion('0.7.0'):
+        return sympy.Dummy(name)
+    return sympy.Symbol(name, dummy=True)
 

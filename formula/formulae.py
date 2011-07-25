@@ -102,9 +102,11 @@ array([(51.0, 39.0, 1989.0, 1.0), (64.0, 54.0, 3456.0, 1.0),
       dtype=[('X1', '<f8'), ('X3', '<f8'), ('X1*X3', '<f8'), ('1', '<f8')])
 '''
 
-import sympy
 import numpy as np
-from utils import contrast_from_cols_or_rows
+
+import sympy
+
+from .utils import contrast_from_cols_or_rows, make_dummy
 
 
 class Beta(sympy.symbol.Dummy):
@@ -373,7 +375,7 @@ class Formula(object):
         params = getparams(self.design_expr)
         newparams = []
         for i, p in enumerate(params):
-            newp = sympy.Symbol("__p%d__" % (i + random_offset), dummy=True)
+            newp = make_dummy("__p%d__" % (i + random_offset))
             for j, _ in enumerate(d):
                 d[j] = d[j].subs(p, newp)
             newparams.append(newp)
