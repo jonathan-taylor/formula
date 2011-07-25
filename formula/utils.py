@@ -1,20 +1,39 @@
-import numpy as np
-from scipy.linalg import svdvals
-
 from itertools import combinations
 
-def rank(X, cond=1.0e-12):
-    # XXX Is this in scipy somewhere?
-    """ Return the rank of a matrix X
+import numpy as np
 
-    Rank based on its generalized inverse, not the SVD.
-    """
-    X = np.asarray(X)
-    if len(X.shape) == 2:
-        D = svdvals(X)
-        return int(np.add.reduce(np.greater(D / D.max(), cond).astype(np.int32)))
-    else:
-        return int(not np.alltrue(np.equal(X, 0.)))
+try:
+    # matrix_rank in numpy >= 1.5.0
+    from numpy.linalg import matrix_rank as rank
+except ImportError:
+    from numpy.lingalg import svd
+    def rank(M, tol=None):
+        """
+        Return matrix rank of array using SVD method
+
+        Rank of the array is the number of SVD singular values of the
+        array that are greater than `tol`.
+
+        Parameters
+        ----------
+        M : array_like
+            array of <=2 dimensions
+        tol : {None, float}
+            threshold below which SVD values are considered zero. If `tol` is
+            None, and ``S`` is an array with singular values for `M`, and
+            ``eps`` is the epsilon value for datatype of ``S``, then `tol` is
+            set to ``S.max() * eps``.
+        """
+        M = np.asarray(M)
+        if M.ndim > 2:
+            raise TypeError('array should have 2 or fewer dimensions')
+        if M.ndim < 2:
+            return int(not all(M==0))
+        S = svd(M, compute_uv=False)
+        if tol is None:
+            tol = S.max() * np.finfo(S.dtype).eps
+        return sum(S > tol)
+
 
 def fullrank(X, r=None):
     """ Return a matrix whose column span is the same as X
@@ -109,7 +128,6 @@ def contrast_from_cols_or_rows(L, D, pseudo=None):
         C = np.dot(pseudo, Lp).T
 
     return np.squeeze(C)
-
 
 
 def simplicial_complex(*simplices):
