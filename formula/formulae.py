@@ -581,7 +581,6 @@ def is_formula(obj):
     return hasattr(obj, "_formula_flag")
 
 
-
 def getparams(expression):
     """ Return the parameters of an expression that are not Term
     instances but are instances of sympy.Symbol.

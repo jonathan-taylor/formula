@@ -3,7 +3,8 @@ import os
 
 from .info import __version__, long_description as __doc__
 
-from .parts import Term, Factor, Formula
+from .parts import Term, Factor, stratify
+from .formulae import Formula, I
 from .ancova import ANCOVA
 from .convenience import terms, make_recarray
 

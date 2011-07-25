@@ -1,4 +1,7 @@
-import sympy, numpy as np
+import numpy as np
+
+import sympy
+
 from .formulae import Formula
 
 LETTERS_DIGITS = ('abcdefghijklmnopqrstuvwxyz'
@@ -36,6 +39,7 @@ class Term(sympy.Symbol):
         """
         return Formula([self])
 
+
 class FactorTerm(Term):
     """ Boolean Term derived from a Factor.
 
@@ -61,6 +65,7 @@ class FactorTerm(Term):
                 return 0
         else:
             return sympy.Symbol.__mul__(self, other)
+
 
 class Factor(object):
     """ A qualitative variable in a regression model
@@ -219,6 +224,7 @@ class Factor(object):
             name = col.dtype.names[0]
         return Factor(name, levels)
 
+
 def is_term(obj):
     """ Is obj a Term?
     """
@@ -230,24 +236,45 @@ def is_factor_term(obj):
     """
     return hasattr(obj, "_factor_term_flag")
 
+
 def is_factor(obj):
     """ Is obj a Formula?
     """
     return hasattr(obj, "_factor_flag")
 
-def fromrec(recarray):
-    """
-    Create a collection of Terms and Factors
-    from a recarray
-    """
 
+def fromrec(recarr):
+    """ Create Terms and Factors from structured array
+
+    We assume fields of type object and string are Factors, all others are
+    Terms.
+
+    Parameters
+    ----------
+    recarr : ndarray
+        array with composite dtype
+
+    Returns
+    -------
+    facterms : dict
+        dict with keys of ``recarr`` dtype field names, and values being a
+        Factor (if the field was object or string type) and a Term otherwise.
+
+    Examples
+    --------
+    >>> arr = np.array([(100,'blue','Chelsea'),(0,'red','Man U')], dtype=
+    ...                [('how awesome?','i'),('color', 'S5'),('team',object)])
+    >>> fromrec(arr)
+
+    """
     result = {}
-    for n, d in recarray.dtype.descr:
+    for n, d in recarr.dtype.descr:
         if d[1] in ('S', 'O'):
-            result[n] = Factor(n, np.unique(recarray[n]))
+            result[n] = Factor(n, np.unique(recarr[n]))
         else:
             result[n] = Term(n)
     return result
+
 
 def stratify(factor, variable):
     """ Create a new variable, stratified by the levels of a Factor.

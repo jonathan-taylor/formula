@@ -3,7 +3,7 @@
 
 import numpy as np
 
-from ..convenience import terms
+from ..convenience import terms, make_recarray
 from ..parts import Term
 
 from numpy.testing import (assert_array_almost_equal,
@@ -36,3 +36,11 @@ def test_terms():
         return
     assert_equal(res, Term('abc'))
     assert_equal(terms('abc', each_char=True), (a, b, c))
+
+
+def test_make_recarray():
+    m = make_recarray([[3,4],[4,6],[7,9]], 'wv', [np.float, np.int])
+    assert_equal(m.dtype.names, ('w', 'v'))
+    m2 = make_recarray(m, 'xy')
+    assert_equal(m2.dtype.names, ('x', 'y'))
+
