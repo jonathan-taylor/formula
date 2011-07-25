@@ -106,8 +106,6 @@ import sympy
 import numpy as np
 from utils import contrast_from_cols_or_rows
 
-from aliased import _add_aliases_to_namespace
-
 
 class Beta(sympy.symbol.Dummy):
     ''' A dummy symbol tied to a Term `term` '''
@@ -380,17 +378,13 @@ class Formula(object):
                 d[j] = d[j].subs(p, newp)
             newparams.append(newp)
 
-        # If there are any aliased functions, these need to be added
-        # to the name space before sympy lambdifies the expression
-
-        # These "aliased" functions are used for things like
+        # These "implemented" functions are used for things like
         # the natural splines, etc. You can represent natural splines
         # with sympy but the expression is pretty awful.
 
-        _namespace = {};
-        _add_aliases_to_namespace(_namespace, *d)
-
-        self._f = sympy.lambdify(newparams + newterms, d, (_namespace, "numpy"))
+        # Note that  ``d`` here is list giving the differentiation of the
+        # expression for the mean.  self._f(...) therefore also returns a list
+        self._f = sympy.lambdify(newparams + newterms, d, ("numpy"))
 
         # The input to self.design will be a recarray of that must
         # have field names that the Formula will expect to see.
