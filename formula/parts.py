@@ -275,10 +275,13 @@ def fromrec(recarr):
 
     Examples
     --------
-    >>> arr = np.array([(100,'blue','Chelsea'),(0,'red','Man U')], dtype=
-    ...                [('how awesome?','i'),('color', 'S5'),('team',object)])
-    >>> fromrec(arr)
-
+    >>> arr = np.array([(100,'blue'), (0, 'red')], dtype=
+    ...                [('awesomeness','i'), ('shirt','S7')])
+    >>> teams = fromrec(arr)
+    >>> is_term(teams['awesomeness'])
+    True
+    >>> is_factor(teams['shirt'])
+    True
     """
     result = {}
     for n, d in recarr.dtype.descr:
