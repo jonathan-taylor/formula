@@ -312,13 +312,11 @@ class Formula(object):
         [1, y]
         >>> sorted(f3.terms)
         [1, x, y, z]
-        >>>
         """
         if hasattr(other, 'formula'):
             other = other.formula
-        result = np.multiply.outer(self.terms, other.terms)
-        f = self.__class__(result.reshape(-1))
-        return f.unique
+        result = np.unique(np.outer(self.terms, other.terms).reshape(-1))
+        return self.__class__([T for T in result if T != 0])
 
     def __array__(self):
         return self.terms
