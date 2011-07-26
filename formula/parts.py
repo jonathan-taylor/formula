@@ -160,7 +160,6 @@ class Factor(object):
         a binary column for each level
         of the factor except self.reference.
         """
-
         terms = list(self.indicator.terms)
         ref_term = self.get_term(self.reference)
         terms.remove(ref_term)
@@ -223,6 +222,20 @@ class Factor(object):
         elif col.dtype.names:
             name = col.dtype.names[0]
         return Factor(name, levels)
+
+    def __mul__(self, other):
+        """ Multiply factor by other formula-like object
+
+        Parameters
+        ----------
+        other : object
+            object that can be multiplied with a formula
+
+        Returns
+        -------
+        f : ``Formula``
+        """
+        return self.formula * other
 
 
 def is_term(obj):
