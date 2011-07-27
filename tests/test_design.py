@@ -1,18 +1,44 @@
+from os import remove
+import tempfile
+from string import uppercase
+
 import numpy as np
+# append_fields available from numpy 1.3.0
+from numpy.lib.recfunctions import append_fields
+
 import sympy
 
-from string import uppercase
-from StringIO import StringIO
-import nose.tools as nt
+try:
+    import rpy2.robjects
+except ImportError:
+    have_rpy2 = False
+else:
+    have_rpy2 = True
 
-from os import remove
+try:
+    import matplotlib.mlab as ML
+except ImportError:
+    have_mpl = False
+else:
+    have_mpl = True
+
 from formula.parts import Term, Factor
 from formula.ancova import ANCOVA
-import matplotlib.mlab as ML
-import tempfile, rpy2.robjects
+
+import nose.tools as nt
+from nose.plugins.skip import SkipTest
+
+
+def setup_module():
+    if not have_rpy2:
+        raise SkipTest('Need rpy2 for design tests')
+    if not have_mpl:
+        raise SkipTest('Need matplotlib for design tests')
+
 
 def random_letters(size, nlevels=6):
     return [uppercase[i] for i in np.random.random_integers(0,nlevels-1,size=size)]
+
 
 def random_subset(subset, size):
     s = sorted(subset)
@@ -23,8 +49,8 @@ def random_recarray(size):
     initial['Y'] = np.random.standard_normal(size)
     numeric_vars = [np.random.standard_normal(size) for _ in range(10)]
     categorical_vars = [random_letters(size, l) for l in [3,4,7,6,4,5,8]]
-    inter = ML.rec_append_fields(initial, ['n%s' % l for l in uppercase[:10]], numeric_vars)
-    final = ML.rec_append_fields(inter, ['c%s' % l for l in uppercase[:len(categorical_vars)]], categorical_vars)
+    inter = append_fields(initial, ['n%s' % l for l in uppercase[:10]], numeric_vars)
+    final = append_fields(inter, ['c%s' % l for l in uppercase[:len(categorical_vars)]], categorical_vars)
     return final, sympy.symbols(['n%s' % l for l in uppercase[:10]]), [Factor('c%s' % s, np.unique(l)) for s, l in zip(uppercase[:len(categorical_vars)],
                                                                                                                        categorical_vars)]
 
@@ -38,20 +64,22 @@ def random_categorical_formula(size=500):
         d.append((expr, factors))
     return ANCOVA(*tuple(set(d)))
 
+
 def random_from_factor(factor, size):
     return random_subset(factor.levels, size)
 
+
 def random_from_terms_factors(terms, factors, size):
-    dtype = np.dtype([(str(t), np.float) for t in terms] + [(f.name,'S30') for f in factors])
     data = np.empty(size, 
                     np.dtype([(str(terms[0]), np.float)]))
     data[str(terms[0])] = np.random.standard_normal(size)
     for t in terms[1:]:
-        data = ML.rec_append_fields(data, str(t), 
+        data = append_fields(data, str(t),
                                     np.random.standard_normal(size))
     for f in factors:
-        data = ML.rec_append_fields(data, f.name, random_from_factor(f, size))
+        data = append_fields(data, f.name, random_from_factor(f, size))
     return data
+
 
 def random_from_categorical_formula(cf, size):
     exprs = []
@@ -64,6 +92,7 @@ def random_from_categorical_formula(cf, size):
                 factors += list(fs)
     return random_from_terms_factors(list(set(exprs)), list(set(factors)), size)
 
+
 def simple():
 
     x = Term('x'); y = Term('y') ; z = Term('z')
@@ -74,6 +103,7 @@ def simple():
                 (z,[h]),(z,[h,g,f]), (x*y*z,[h]),(x*y*z,[f]))
 
     return d
+
 
 def simple2():
 
@@ -86,12 +116,13 @@ def simple2():
 
     return d
 
+
 def testR(d=None, size=500):
     if d is None:
         d = simple()
     X = random_from_categorical_formula(d, size)
 
-    X = ML.rec_append_fields(X, 'response', np.random.standard_normal(size))
+    X = append_fields(X, 'response', np.random.standard_normal(size))
 
     fname = tempfile.mktemp()
     ML.rec2csv(X, fname)
@@ -109,7 +140,7 @@ def testR(d=None, size=500):
     nt.assert_true('(Intercept)' in nR)
     nR.remove("(Intercept)")
     nF = [str(t).replace("_","").replace("*",":") for t in d.formula.terms]
-             
+
     nR = sorted([sorted(n.split(":")) for n in nR])
 
     nt.assert_true('1' in nF)
@@ -120,8 +151,10 @@ def testR(d=None, size=500):
 
     return d, X, nR, nF
 
+
 def test2():
     testR(d=random_categorical_formula())
+
 
 def test3():
     testR(d=simple2())
