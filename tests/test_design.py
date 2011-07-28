@@ -46,15 +46,20 @@ def random_subset(subset, size):
     s = sorted(subset)
     return [s[i] for i in np.random.random_integers(0,len(s)-1,size=size)]
 
+
 def random_recarray(size):
     initial = np.empty(size, dtype=np.dtype([('Y', np.float)]))
     initial['Y'] = np.random.standard_normal(size)
     numeric_vars = [np.random.standard_normal(size) for _ in range(10)]
     categorical_vars = [random_letters(size, l) for l in [3,4,7,6,4,5,8]]
     inter = append_fields(initial, ['n%s' % l for l in uppercase[:10]], numeric_vars)
-    final = append_fields(inter, ['c%s' % l for l in uppercase[:len(categorical_vars)]], categorical_vars)
-    return final, sympy.symbols(['n%s' % l for l in uppercase[:10]]), [Factor('c%s' % s, np.unique(l)) for s, l in zip(uppercase[:len(categorical_vars)],
-                                                                                                                       categorical_vars)]
+    catvarchars = uppercase[:len(categorical_vars)]
+    final = append_fields(inter, ['c%s' % l for l in catvarchars], categorical_vars)
+    return (final,
+            sympy.symbols(['n%s' % l for l in uppercase[:10]]),
+            [Factor('c%s' % s, np.unique(l)) for s, l in zip(catvarchars, categorical_vars)]
+           )
+
 
 def random_categorical_formula(size=500):
     nterms = np.random.poisson(5)
@@ -123,7 +128,6 @@ def test__arr2csv():
 
 
 def simple():
-
     x = Term('x'); y = Term('y') ; z = Term('z')
     f = Factor('f', ['a','b','c'])
     g = Factor('g', ['aa','bb','cc'])
@@ -135,14 +139,12 @@ def simple():
 
 
 def simple2():
-
     x = Term('x'); y = Term('y') ; z = Term('z')
     f = Factor('f', ['a','b','c'])
     g = Factor('g', ['aa','bb','cc'])
     h = Factor('h', ['a','b','c','d','e','f','g','h','i','j'])
     d = ANCOVA((x*y,(g,f)),(x,(f,)),(x,[g,f]),(1,[g]),
                 (z,[h]),(z,[h,g,f]), (x*y*z,[f]),(x*y*z,[h]))
-
     return d
 
 
@@ -150,7 +152,6 @@ def testR(d=None, size=500):
     if d is None:
         d = simple()
     X = random_from_categorical_formula(d, size)
-
     X = append_fields(X, 'response', np.random.standard_normal(size))
     fh, fname = mkstemp()
     try:
@@ -164,19 +165,14 @@ def testR(d=None, size=500):
     finally:
         remove(fname)
     nR = list(np.array(rpy2.robjects.r("names(COEF)")))
-
     nt.assert_true('(Intercept)' in nR)
     nR.remove("(Intercept)")
     nF = [str(t).replace("_","").replace("*",":") for t in d.formula.terms]
-
     nR = sorted([sorted(n.split(":")) for n in nR])
-
     nt.assert_true('1' in nF)
     nF.remove('1')
-
     nF = sorted([sorted(n.split(":")) for n in nF])
     nt.assert_equal(nR, nF)
-
     return d, X, nR, nF
 
 
