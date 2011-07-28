@@ -1,6 +1,7 @@
 from os import remove
-import tempfile
+from tempfile import mkstemp
 from string import uppercase
+import csv
 
 import numpy as np
 # append_fields available from numpy 1.3.0
@@ -15,25 +16,26 @@ except ImportError:
 else:
     have_rpy2 = True
 
-try:
-    import matplotlib.mlab as ML
-except ImportError:
-    have_mpl = False
-else:
-    have_mpl = True
-
 from formula.parts import Term, Factor
 from formula.ancova import ANCOVA
 
 import nose.tools as nt
 from nose.plugins.skip import SkipTest
+from numpy.testing import assert_array_almost_equal, assert_array_equal
 
 
 def setup_module():
     if not have_rpy2:
         raise SkipTest('Need rpy2 for design tests')
-    if not have_mpl:
-        raise SkipTest('Need matplotlib for design tests')
+
+
+def _arr2csv(arr, fname):
+    """ Very simple structured array csv writer """
+    fobj = open(fname, 'wb')
+    writer = csv.writer(fobj)
+    writer.writerow(arr.dtype.names)
+    for row in arr:
+        writer.writerow(row)
 
 
 def random_letters(size, nlevels=6):
@@ -93,6 +95,33 @@ def random_from_categorical_formula(cf, size):
     return random_from_terms_factors(list(set(exprs)), list(set(factors)), size)
 
 
+def test__arr2csv():
+    # Test little csv utility against MPL
+    try:
+        from matplotlib.mlab import rec2csv
+    except ImportError:
+        raise SkipTest('Need matplotlib for test')
+    # make test data
+    size = 500
+    X = random_from_categorical_formula(simple(), size)
+    X = append_fields(X, 'response', np.random.standard_normal(size))
+    res = []
+    for func in (_arr2csv, rec2csv):
+        fh, fname = mkstemp()
+        try:
+            func(X, fname)
+            res.append(np.recfromcsv(fname))
+        finally:
+            remove(fname)
+    a2c, r2c = res
+    for name in a2c.dtype.names:
+        v1 = a2c[name]
+        if v1.dtype.kind == 'S':
+            assert_array_equal(v1, r2c[name])
+        else:
+            assert_array_almost_equal(a2c[name], r2c[name])
+
+
 def simple():
 
     x = Term('x'); y = Term('y') ; z = Term('z')
@@ -123,18 +152,17 @@ def testR(d=None, size=500):
     X = random_from_categorical_formula(d, size)
 
     X = append_fields(X, 'response', np.random.standard_normal(size))
-
-    fname = tempfile.mktemp()
-    ML.rec2csv(X, fname)
-
-    Rstr = '''
-    data = read.table("%s", sep=',', header=T)
-    cur.lm = lm(response ~ %s, data)
-    COEF = coef(cur.lm)
-    ''' % (fname, d.Rstr)
-
-    rpy2.robjects.r(Rstr)
-    remove(fname)
+    fh, fname = mkstemp()
+    try:
+        _arr2csv(X, fname)
+        Rstr = '''
+        data = read.table("%s", sep=',', header=T)
+        cur.lm = lm(response ~ %s, data)
+        COEF = coef(cur.lm)
+        ''' % (fname, d.Rstr)
+        rpy2.robjects.r(Rstr)
+    finally:
+        remove(fname)
     nR = list(np.array(rpy2.robjects.r("names(COEF)")))
 
     nt.assert_true('(Intercept)' in nR)
