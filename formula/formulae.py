@@ -184,16 +184,18 @@ class Formula(object):
         """
         Return a Formula(np.unique(self.terms))
         """
-        return Formula(np.unique(self.terms))
+        return self.__class__(np.unique(self.terms))
 
     @property
     def params(self):
         """
         The parameters in the Formula.
         """
+        from .parts import getparams
         return getparams(self.mean)
 
     def _getdiff(self):
+        from .parts import getparams
         params = list(set(getparams(self.mean)))
         params.sort()
         return [sympy.diff(self.mean, p).doit() for p in params]
@@ -261,7 +263,7 @@ class Formula(object):
         for t in l2:
             if t in l1:
                 l1.remove(t)
-        return Formula(l1)
+        return self.__class__(l1)
 
     def __repr__(self):
         return """Formula(%s)""" % `list(self.terms)`
@@ -356,6 +358,7 @@ class Formula(object):
 
         random_offset = np.random.random_integers(low=0, high=2**30)
 
+        from .parts import getterms, getparams, is_factor_term
         terms = getterms(self.mean)
 
         newterms = []
@@ -439,7 +442,7 @@ class Formula(object):
            each Formula by evaluating its design at the same parameters
            as self.design. If not None, then the return_float is set to True.
         """
-
+        from .parts import is_factor_term
         self._setup_design()
 
         preterm_recarray = input
@@ -543,7 +546,7 @@ class Formula(object):
             cmatrices = {}
             for key, cf in contrasts.items():
                 if not is_formula(cf):
-                    cf = Formula([cf])
+                    cf = self.__class__([cf])
                 L = cf.design(input, param=param_recarray,
                               return_float=True)
                 cmatrices[key] = contrast_from_cols_or_rows(L, _D, pseudo=pinvD)
@@ -561,89 +564,11 @@ def is_beta(obj):
     return hasattr(obj, "_beta_flag")
 
 
-def is_term(obj):
-    """ Is obj a Term?
-    """
-    return hasattr(obj, "_term_flag")
-
-
-def is_factor_term(obj):
-    """ Is obj a FactorTerm?
-    """
-    return hasattr(obj, "_factor_term_flag")
-
-
 def is_formula(obj):
     """ Is obj a Formula?
     """
     return hasattr(obj, "_formula_flag")
 
-
-def getparams(expression):
-    """ Return the parameters of an expression that are not Term
-    instances but are instances of sympy.Symbol.
-
-    Examples
-    --------
-    >>> from formula import terms
-    >>> x, y, z = terms('x, y, z')
-    >>> f = Formula([x,y,z])
-    >>> getparams(f)
-    []
-    >>> f.mean
-    _b0*x + _b1*y + _b2*z
-    >>> getparams(f.mean)
-    [_b0, _b1, _b2]
-    >>>
-    >>> th = sympy.Symbol('theta')
-    >>> f.mean*sympy.exp(th)
-    (_b0*x + _b1*y + _b2*z)*exp(theta)
-    >>> getparams(f.mean*sympy.exp(th))
-    [theta, _b0, _b1, _b2]
-    """
-    atoms = set([])
-    expression = np.array(expression)
-    if expression.shape == ():
-        expression = expression.reshape((1,))
-    if expression.ndim > 1:
-        expression = expression.reshape((np.product(expression.shape),))
-    for term in expression:
-        atoms = atoms.union(sympy.sympify(term).atoms())
-    params = []
-    for atom in atoms:
-        if isinstance(atom, sympy.Symbol) and not is_term(atom):
-            params.append(atom)
-    params.sort()
-    return params
-
-
-def getterms(expression):
-    """ Return the all instances of Term in an expression.
-
-    Examples
-    --------
-    >>> from formula import terms
-    >>> x, y, z = terms('x, y, z')
-    >>> f = Formula([x,y,z])
-    >>> getterms(f)
-    [x, y, z]
-    >>> getterms(f.mean)
-    [x, y, z]
-    """
-    atoms = set([])
-    expression = np.array(expression)
-    if expression.shape == ():
-        expression = expression.reshape((1,))
-    if expression.ndim > 1:
-        expression = expression.reshape((np.product(expression.shape),))
-    for e in expression:
-        atoms = atoms.union(e.atoms())
-    terms = []
-    for atom in atoms:
-        if is_term(atom):
-            terms.append(atom)
-    terms.sort()
-    return terms
 
 
 

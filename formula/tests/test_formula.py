@@ -10,22 +10,12 @@ import sympy
 from sympy.utilities.lambdify import implemented_function
 
 from .. import formulae as F
-from ..parts import Term, Factor, stratify, fromrec
+from ..parts import Term, Factor, stratify, getparams
 from ..convenience import make_recarray
 
 from nose.tools import (assert_true, assert_equal, assert_false,
                         assert_raises, nottest)
 from numpy.testing import assert_almost_equal
-
-
-def test_getparams_terms():
-    t = Term('t')
-    x, y, z = [sympy.Symbol(l) for l in 'xyz']
-    assert_equal(set(F.getparams(x*y*t)), set([x,y]))
-    assert_equal(set(F.getterms(x*y*t)), set([t]))
-    matrix_expr = np.array([[x,y*t],[y,z]])
-    assert_equal(set(F.getparams(matrix_expr)), set([x,y,z]))
-    assert_equal(set(F.getterms(matrix_expr)), set([t]))
 
 
 def test_formula_params():
@@ -162,7 +152,7 @@ def test_nonlin1():
     x = Term('x')
     fac = Factor('f', 'ab')
     f = F.Formula([sympy.exp(stratify(fac, x).mean)]) + F.I
-    params = F.getparams(f.mean)
+    params = getparams(f.mean)
     assert_equal(set([str(p) for p in params]), set(['_x0', '_x1', '_b0', '_b1']))
     test1 = set(['1',
                  'exp(_x0*f_a + _x1*f_b)',

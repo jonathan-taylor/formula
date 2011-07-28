@@ -3,7 +3,9 @@
 
 import numpy as np
 
-from ..parts import fromrec, is_term, is_factor
+import sympy
+
+from ..parts import fromrec, is_term, is_factor, Term, getparams, getterms
 
 from numpy.testing import (assert_array_almost_equal,
                            assert_array_equal)
@@ -12,7 +14,7 @@ from nose.tools import assert_true, assert_equal, assert_raises
 
 
 def test_fromrec():
-    # Test sttructured arrays to terms and factors
+    # Test structured arrays to terms and factors
     D = np.array([
         (43, 51, 30, 39, 1, 92, 'blue'),
         (63, 64, 51, 54, 3, 73, 'blue'),
@@ -58,3 +60,15 @@ def test_fromrec():
         assert_true(is_factor(fts[t]))
     assert_equal(fts['x4'].levels, range(10))
     assert_equal(fts['x6'].levels, ['blue', 'green', 'red'])
+
+
+def test_getparams_terms():
+    t = Term('t')
+    x, y, z = [sympy.Symbol(l) for l in 'xyz']
+    assert_equal(set(getparams(x*y*t)), set([x,y]))
+    assert_equal(set(getterms(x*y*t)), set([t]))
+    matrix_expr = np.array([[x,y*t],[y,z]])
+    assert_equal(set(getparams(matrix_expr)), set([x,y,z]))
+    assert_equal(set(getterms(matrix_expr)), set([t]))
+
+
