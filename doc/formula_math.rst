@@ -175,7 +175,7 @@ sum of equivalence classes will break
 down occasionally, in the sense
 that, with probability roughly 4e-12, :math:`\pi(\{(1,m)\}) + \pi(\{(1,m)\}) = 0`.
 In the implementation of this in `nipy`_, the ring we take can be thought of
-as the ring of `sympy`_ dummy symbols, so, up to memory errors, 
+as the ring of `sympy`_ dummy symbols, so, up to memory errors,
 :math:`\{m\} + \{m\}=\{m\}` always.
 
 The set of equivalence classes :math:`\{0,1\}^{\cal M}` also has a well
@@ -304,11 +304,10 @@ separate from specifying the joint distribution on :math:`\Omega^n`, but
 thinking of factors and numeric variables as functions 
 makes things more concrete.
 
-In this new view, a
-*factor* from the previous section
- is now defined as a function :math:`f_i :\Omega \rightarrow L_i`
-where :math:`L_i` is the set of levels of the factor. 
-We define a *numeric* variable as a real-valued function on :math:`\Omega`.
+In this new view, a *factor* from the previous section is now defined as a
+function :math:`f_i :\Omega \rightarrow L_i` where :math:`L_i` is the set of
+levels of the factor.  We define a *numeric* variable as a real-valued function
+on :math:`\Omega`.
 
 With this definition, :math:`{\cal F}` is a (finite) collection of functions
 on :math:`\Omega`, each taking values in a different space, and
@@ -426,39 +425,37 @@ a function :math:`g_m:\Omega \rightarrow \mathbb{R}^{k(m)}`. Here,
 may be viewed as a collection of subsets of :math:`{\cal F}`.
 
 The collection of subsets of :math:`{\cal F}` is naturally *graded*, i.e.
-:math:`m` can be partially ordered in terms of the size of each subset on :math:`m`.
-Let :math:`s_1 \leq s_2 \leq \dots \leq s_{\# m}` represent
-this ordering where each :math:`s_i = \{f_{j}\} \subset {\cal F}, i \geq 1`
-and, possibly, :math:`s_1 = \emptyset`.
-Now, each :math:`s_i` will contribute a certain number of random variables to :math:`g_m` that are concatenated together. The number
-of random variables depends on how each factor :math:`f_{j} \in s_i`
-is *coded*. The *coding* of a factor :math:`f_j` is defined as a choice of a
-random vector
-:math:`h_j:\Omega \rightarrow \mathbb{R}^{d(f_j)}`. The types 
-of coding fall into two groups either *indicator* or *contrast*.
-If a factor is coded with *indicator* variables, then
- :math:`d(f_j) = \# L_{j}`, the number
-of levels of :math:`f_j`. If a factor
-is coded with *contrast* variables, then :math:`d(f_j)=\# L_j-1`.
+:math:`m` can be partially ordered in terms of the size of each subset on
+:math:`m`.  Let :math:`s_1 \leq s_2 \leq \dots \leq s_{\# m}` represent this
+ordering where each :math:`s_i = \{f_{j}\} \subset {\cal F}, i \geq 1` and,
+possibly, :math:`s_1 = \emptyset`.  Now, each :math:`s_i` will contribute a
+certain number of random variables to :math:`g_m` that are concatenated
+together. The number of random variables depends on how each factor :math:`f_{j}
+\in s_i` is *coded*. The *coding* of a factor :math:`f_j` is defined as a choice
+of a random vector :math:`h_j:\Omega \rightarrow \mathbb{R}^{d(f_j)}`. The types
+of coding fall into two groups either *indicator* or *contrast*.  If a factor is
+coded with *indicator* variables, then :math:`d(f_j) = \# L_{j}`, the number of
+levels of :math:`f_j`. If a factor is coded with *contrast* variables, then
+:math:`d(f_j)=\# L_j-1`.
 
-For each factor :math:`f_j`, and
-a linear ordering of :math:`L_j = \{v_{1,j} < v_{2,j} < \dots < v_{\# L_j,j} \}` we can define :math:`\# L_j` binary
-random variables
+For each factor :math:`f_j`, and a linear ordering of :math:`L_j = \{v_{1,j} <
+v_{2,j} < \dots < v_{\# L_j,j} \}` we can define :math:`\# L_j` binary random
+variables
 
 .. math::
 
-    b_{jl}(\omega) = 
+    b_{jl}(\omega) =
     \begin{cases}
     1 &= f_j(\omega) = v_{l,j}
     \end{cases}
 
-An *indicator* coding is any set of :math:`\# L_j` functions whose linear
-span coincides with the linear span of :math:`b_{jl}, 1 \leq l \leq \# L_j`. Usually, these functions are just taken to be the :math:`b_{jl}`'s themselves.
+An *indicator* coding is any set of :math:`\# L_j` functions whose linear span
+coincides with the linear span of :math:`b_{jl}, 1 \leq l \leq \# L_j`. Usually,
+these functions are just taken to be the :math:`b_{jl}`'s themselves.
 
 A *contrast* coding is a set of :math:`\# L_j-1`  independent linear
-combinations
-of the :math:`b_{jl}` chosen in various ways, each
-with different interpretations.
+combinations of the :math:`b_{jl}` chosen in various ways, each with different
+interpretations.
 
 .. rcode::
 
@@ -527,15 +524,11 @@ using all indicator codings for each factor in each of the subsets :math:`[s_1,\
 
 By construction, then, the coordinate functions of the final function :math:`g_m=g_m^{(m)}` span the same space as if it has used the indicator
 codings for each factor in each of the :math:`[s_1, \dots, s_{\# m}]`.
- 
+
 The rule can be expressed in terms of operations on simplicial complexes:
 
-.. literalinclude:: formula.py
+.. literalinclude:: ../formula/formula.py
     :pyobject: factor_codings
-
-
-
-
 
 These types of expressions are used in *R* to construct design matrices.
 
@@ -565,32 +558,23 @@ and used in a linear model.
    lm1 = lm(Y~a+b+cc+a:b:cc-1)
    print(lm1$coef)
 
-At this point,
-the algebraic tools being used are slightly different.
-The monoid structure is forgotten and 
-we turn to working with simple polynomials.
-What *R* does is tries to find an alternative, but
-equivalent, expression for
-something like :math:`a \cdot b \cdot c`
-because it recognizes :math:`a \cdot b \cdot c` as
-*maximal* in the formula above even though :math:`a`
-as well as :math:`a \cdot b` and :math:`b \cdot c` also appear.
-In this case, equivalence means equivalence in the 
-additive sense. That is, it constructs a second
-element of this monoid ring such that the column
-span, when computed, is identical to that of :math:`a \cdot b \cdot c`
-which is the pairwise product of the dummy indicator
-variables :math:`a,b,c`. The polynomials
-that *R* uses for this are generated by
-:math:`\{a,b,c,a-\pmb{1},b-\pmb{1},c-\pmb{1}\}`.
-An expression of the form :math:`a-\pmb{1}`
-indicates that *R* will use
-"contrasts" instead of "dummy variables" to encode this factor
-in the expression. There are several choices of *contrast* to use.
+At this point, the algebraic tools being used are slightly different.  The
+monoid structure is forgotten and we turn to working with simple polynomials.
+What *R* does is tries to find an alternative, but equivalent, expression for
+something like :math:`a \cdot b \cdot c` because it recognizes :math:`a \cdot b
+\cdot c` as *maximal* in the formula above even though :math:`a` as well as
+:math:`a \cdot b` and :math:`b \cdot c` also appear.  In this case, equivalence
+means equivalence in the additive sense. That is, it constructs a second element
+of this monoid ring such that the column span, when computed, is identical to
+that of :math:`a \cdot b \cdot c` which is the pairwise product of the dummy
+indicator variables :math:`a,b,c`. The polynomials that *R* uses for this are
+generated by :math:`\{a,b,c,a-\pmb{1},b-\pmb{1},c-\pmb{1}\}`.  An expression of
+the form :math:`a-\pmb{1}` indicates that *R* will use "contrasts" instead of
+"dummy variables" to encode this factor in the expression. There are several
+choices of *contrast* to use.
 
-If the contrast encoding involves dropping a term, 
-say, the term corresponding to the last level in a factor, then
-the expression
+If the contrast encoding involves dropping a term, say, the term corresponding
+to the last level in a factor, then the expression
 
 .. math::
 
@@ -598,7 +582,7 @@ the expression
 
 has columns
 
-.. code-block::
+.. code-block:: python
 
    [a_2 * b_3 * c_hot, a_2 * b_4 * c_hot]
 
@@ -640,46 +624,32 @@ does not know how to construct this design matrix. However,
 we can create a linear ordering of the 
 monomials given a linear ordering of :math:`{\cal F}`.
 
-The algorithm *R* uses to construct the columns of
-the design matrix is relatively straightforward, 
-at least as described in Hastie \& Chambers (1992),
-once the linear ordering of the monomials
-in the monoid ring is fixed, as well as the ordering
-of the levels of the factors.
-As the monoid ring is graded
- `graded <http://en.wikipedia.org/wiki/Graded_algebra>`_,
- there is a natural
-ordering of monomials in terms of 
-the cardinality of the subsets they represent (remember
-our monoid ring is algebraically isomorphic to the semi-lattice
-of subsets of :math:`{\cal F}` with binary opertion :math:`\cup`). 
-This is just to emphasize that 
-to implement *R*'s algorithm,
-we must specify a total ordering within monomials of a
-fixed degree. *R* seems to use the name of the factor
-to create this ordering.
+The algorithm *R* uses to construct the columns of the design matrix is
+relatively straightforward, at least as described in Hastie \& Chambers (1992),
+once the linear ordering of the monomials in the monoid ring is fixed, as well
+as the ordering of the levels of the factors.  As the monoid ring is graded
+`graded <http://en.wikipedia.org/wiki/Graded_algebra>`_, there is a natural
+ordering of monomials in terms of the cardinality of the subsets they represent
+(remember our monoid ring is algebraically isomorphic to the semi-lattice of
+subsets of :math:`{\cal F}` with binary opertion :math:`\cup`).  This is just to
+emphasize that to implement *R*'s algorithm, we must specify a total ordering
+within monomials of a fixed degree. *R* seems to use the name of the factor to
+create this ordering.
 
-Given a sequence, :math:`S` of monomials in the monoid ring,
-*R* first creates a new sequence
- :math:`N` of monomials of the same length as 
-:math:`S` in the monoid ring such that
-for each :math:`i`, the ``'maximal elements'`` in :math:`S[:i]`
-and :math:`N[:i]` are identical. In turn,
-this means that the columns of the design matrix 
-generated by :math:`S[:i]` and :math:`N[:i]`
-are identical. Therefore, the
-design matrix generated by :math:`S` and :math:`N` 
+Given a sequence, :math:`S` of monomials in the monoid ring, *R* first creates a
+new sequence :math:`N` of monomials of the same length as :math:`S` in the
+monoid ring such that for each :math:`i`, the ``'maximal elements'`` in
+:math:`S[:i]` and :math:`N[:i]` are identical. In turn, this means that the
+columns of the design matrix generated by :math:`S[:i]` and :math:`N[:i]` are
+identical. Therefore, the design matrix generated by :math:`S` and :math:`N`
 have the same column space.
 
-It then uses this new sequence :math:`N` to ultimately construct
-the design matrix. The span of the columns
-of the design matrix will always include the
-span of the dummy encoding of this maximal
-monomial. Sometimes, it will yield
-a full-rank design matrix, and sometimes not.
+It then uses this new sequence :math:`N` to ultimately construct the design
+matrix. The span of the columns of the design matrix will always include the
+span of the dummy encoding of this maximal monomial. Sometimes, it will yield a
+full-rank design matrix, and sometimes not.
 
-Given a sequence of monomials in 
-the monoid ring (not necessarily sorted) *R*'s
+Given a sequence of monomials in the monoid ring (not necessarily sorted) *R*'s
 is essentially:
 
 .. code-block:: python
@@ -695,21 +665,18 @@ is essentially:
               new_monomial *= variable
       N.append(new_monomial)
 
-Formally, this ordering of the 
-ring takes the expression 
+Formally, this ordering of the ring takes the expression 
 
 .. math::
 
    a+a \cdot b + b \cdot c + a \cdot b \cdot c
 
-and yields sorted sequences
-of orders 0 through 3, in this case. 
-In *R*'s version, the sequences are sequences, 
-rather then sets, i.e. the order matters.
+and yields sorted sequences of orders 0 through 3, in this case.  In *R*'s
+version, the sequences are sequences, rather then sets, i.e. the order matters.
 For our expression above, we have the following sequences:
 
 .. code-block:: python
-   
+
    S[0] = [''] 
    S[1] = ['a'] 
    S[2] = ['ab','bc'] 

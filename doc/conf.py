@@ -103,6 +103,9 @@ version = rel['__version__']
 # The full version, including alpha/beta/rc tags.
 release = version
 
+# Include common links
+rst_epilog = open('links_names.inc', 'rt').read()
+
 # There are two options for replacing |today|: either, you set today to some
 # non-false value, then it is used:
 #today = ''
