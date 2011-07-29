@@ -14,6 +14,13 @@
 
 import sys, os
 
+from formula.rutils import checkfor_r, r_check_library
+
+if not checkfor_r():
+    raise RuntimeError('Need R to build documentation')
+if not r_check_library('car'):
+    raise RuntimeError('Need "car" library installed in R for documentation')
+
 # If your extensions are in another directory, add it here. If the directory
 # is relative to the documentation root, use os.path.abspath to make it
 # absolute, like shown here.

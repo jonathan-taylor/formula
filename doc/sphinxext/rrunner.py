@@ -1,7 +1,10 @@
 import sys, cStringIO, os
 from tempfile import mkstemp
 
-from IPython.irunner import InteractiveRunner, PythonRunner
+try: # IPython 0.10 series
+    from IPython.irunner import InteractiveRunner, PythonRunner
+except ImportError: # 0.11 series
+    from IPython.lib.irunner import InteractiveRunner, PythonRunner
 
 class RRunner(InteractiveRunner):
     """Interactive R runner that has an R_PROFILE
