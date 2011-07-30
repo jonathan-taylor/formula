@@ -43,7 +43,6 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.doctest',
               'sphinx.ext.pngmath',
               'sphinx.ext.autosummary',
-              'ipython_console_highlighting', 
               'inheritance_diagram', 
               'rdirective',
               'ipython_directive'
@@ -75,7 +74,6 @@ autosummary_generate=True
 # feature updates so we'll try to use that one first.
 try:
     import matplotlib.sphinxext
-    extensions.append('matplotlib.sphinxext.mathmpl')
     extensions.append('matplotlib.sphinxext.only_directives')
     extensions.append('matplotlib.sphinxext.plot_directive')
 except ImportError:
