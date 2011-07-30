@@ -465,7 +465,7 @@ interpretations.
      t(contr.treatment(4))
      t(contr.SAS(4))
 
-For instance, *contr.sum* (which corresponds to *nipy*'s `main_effect`_)
+For instance, *contr.sum* (which corresponds to *nipy*'s ``main_effect``)
 uses the random variables
 
 .. math::
@@ -527,7 +527,7 @@ codings for each factor in each of the :math:`[s_1, \dots, s_{\# m}]`.
 
 The rule can be expressed in terms of operations on simplicial complexes:
 
-.. literalinclude:: ../formula/formula.py
+.. literalinclude:: ../formula/utils.py
     :pyobject: factor_codings
 
 These types of expressions are used in *R* to construct design matrices.
