@@ -4,6 +4,6 @@
 .. toctree::
    :maxdepth: 2
 
-   ancova.rst
+   ancova
+   formula_math
    api/index.rst
-   .. formula_math.rst
