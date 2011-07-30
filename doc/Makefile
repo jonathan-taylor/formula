@@ -114,20 +114,3 @@ doctest:
 	$(SPHINXBUILD) -b doctest $(ALLSPHINXOPTS) build/doctest
 	@echo
 	@echo "The overview file is in build/doctest."
-
-# git symbolic-ref HEAD refs/heads/gh-pages
-# rm .git/index
-# git clean -fxd
-# touch .nojekyll
-# echo "Pages for project" > README
-# echo > .gitignore << EOF
-# _build/*
-# *.pyc
-# EOF
-gh-pages: clean html
-	git co gh-pages
-	git rm -r .
-	git checkout HEAD -- .gitignore README .nojekyll
-	cp -r build/html/* .
-	git stage .
-	@echo 'Commit and push when ready or git reset --hard && git checkout master to revert'

@@ -38,3 +38,21 @@ source-release: distclean
 	python -m compileall .
 	make distclean
 	python setup.py sdist --formats=gztar,zip
+
+# git symbolic-ref HEAD refs/heads/gh-pages
+# rm .git/index
+# git clean -fxd
+# touch .nojekyll
+# echo "Pages for project" > README
+# echo > .gitignore << EOF
+# doc/
+# *.pyc
+# EOF
+gh-pages:
+	$(MAKE) -C doc html
+	git co gh-pages
+	git rm -r .
+	git checkout HEAD -- .gitignore README .nojekyll
+	cp -r doc/build/html/* .
+	git stage .
+	@echo 'Commit and push when ready or git reset --hard && git checkout master to revert'
