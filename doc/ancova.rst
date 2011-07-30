@@ -11,7 +11,6 @@ though this example has modified the data to be characters
 instead of numeric. This just makes *R* automatically
 treat some things as factors.
 
-
 .. rcode::
 
    url = 'http://stats191.stanford.edu/data/salary.csv'
@@ -27,15 +26,23 @@ The order of the two terms above matters
    salary2.lm = lm(S ~ X:P + X:E, data=data)
    print(coef(salary2.lm))
 
-Let's try this with the ANCOVA model.
+Let's try this with the ANCOVA model.  First we do some set up:
 
-.. ipython::
+.. ipython:: python
 
+   import numpy as np
+   # Set precision printing to match R output
+   np.set_printoptions(precision=4)
    import matplotlib.mlab as ML
    from pkg_resources import resource_stream
    salary = ML.csv2rec(resource_stream("formula", "data/salary.csv"))
    from formula.parts import fromrec
    from formula.ancova import *
+
+Next we set up the model:
+
+.. ipython:: python
+
    terms = fromrec(salary)
    x = terms['x']; e = terms['e']; p = terms['p']
    ancova = ANCOVA((x,e),(x,p))
@@ -44,7 +51,7 @@ Let's try this with the ANCOVA model.
 
 To fit the model, we use *scikits.statsmodels*
 
-.. ipython::
+.. ipython:: python
 
    from scikits.statsmodels.api import OLS
    model = OLS(salary['s'], formula.design(salary, return_float=True))
@@ -53,7 +60,7 @@ To fit the model, we use *scikits.statsmodels*
 
 Interchanging the order above
 
-.. ipython::
+.. ipython:: python
 
    ancova2 = ANCOVA((x,p),(x,e))
    ancova2.formula.terms
@@ -82,7 +89,7 @@ the first term in a sorted list of the levels of the factor,
 
 For instance:
 
-.. ipython::
+.. ipython:: python
 
    ancova.codings
    ancova2.codings
@@ -102,7 +109,7 @@ We can also specify two-way interactions in *R*
 
 As well as in the *ANCOVA*
 
-.. ipython::
+.. ipython:: python
 
    ancova3 = ANCOVA((x,(p,e)))
    ancova3.codings
@@ -119,7 +126,7 @@ predict:
 
    print(coef(lm(S ~ X:E:P + X:P + X:E, data=data)))
 
-.. ipython::
+.. ipython:: python
 
    ancova4 = ANCOVA((x,(p,e)),(x,p),(x,e))
    ancova4.codings
@@ -132,7 +139,7 @@ predict:
 Changing the order above again changes the terms in the
 formula
 
-.. ipython::
+.. ipython:: python
 
    ancova5 = ANCOVA((x,(p,e)),(x,e),(x,p))
    ancova5.codings
@@ -163,7 +170,7 @@ Adding *X* to the *R* formula adds a zeroth order factor.
 With the categorical formula, this can be achieved
 by
 
-.. ipython::
+.. ipython:: python
 
    ancova6 = ANCOVA(x,(x,e),(x,p),(x,(p,e)))
    ancova6.codings
@@ -178,7 +185,7 @@ One more example
 
    print(coef(lm(S ~ X:E:P + X:E, data=data)))
 
-.. ipython::
+.. ipython:: python
 
    ancova6a = ANCOVA((x,(e,p)),(x,e))
    ancova6a.codings
@@ -195,7 +202,7 @@ The ubiquitous intercept can be suppressed using
 the keyword argument "add_intercept" to the
 constructor of ANCOVA
 
-.. ipython::
+.. ipython:: python
 
    ancova7 = ANCOVA(x,(x,(p,e)),(x,e),(x,p), add_intercept=False)
    ancova7.formula.terms
@@ -225,7 +232,7 @@ is to be added it sees that there will be a linear dependence if
 purely categorical formula. In this case, the columns
 are the same as
 
-.. ipython::
+.. ipython:: python
 
    ancova7a = ANCOVA((1,(p,e)), (1,e), (1,p))
    ancova7a.formula.terms
@@ -235,7 +242,7 @@ are the same as
 This is how the *ANCOVA* is constructed. For each numeric term,
 there is a corresponding pure categorical formula. For example
 
-.. ipython::
+.. ipython:: python
 
    z = Term('z')
    ancova7b = ANCOVA((1,e), (z,e), (z,(e,p)), (x*z,e), (x,e), (x,p), x*z)
@@ -248,7 +255,7 @@ Any of those sequences above can be used to create new ANCOVA instances
 whose formulae is that numeric expression multiplied by the corresponding
 purely categorical formula.
 
-.. ipython::
+.. ipython:: python
 
    ANCOVA(*ancova7b.sequence(z)).formula.terms
    purely_categorical = ANCOVA(*[(1, factors) for _, factors in ancova7b.sequence(z)])
@@ -264,13 +271,13 @@ Contrasts
 Each *(expr, factor)* pair in the *ANCOVA* specification
 maps to a specific contrast.
 
-.. ipython::
+.. ipython:: python
 
    ancova7.contrasts
 
 As opposed to
 
-.. ipython::
+.. ipython:: python
 
    ancova3.contrasts
 
@@ -278,7 +285,7 @@ These contrasts are the default contrasts that
 drop the first level of the factor. This can be changed
 with the *default_contrast* keyword argument
 
-.. ipython::
+.. ipython:: python
 
    ancova8 = ANCOVA(x,(x,(p,e)),(x,e),(x,p), default_contrast='main_effect')
    ancova8.contrasts
@@ -290,14 +297,14 @@ Each contrast can be associated with some columns of the
 final design matrix. These are also elements
 of the *formula* attribute
 
-.. ipython::
+.. ipython:: python
 
    ancova3.slices
 
 
 The slices can be interpreted as contrast matrices
 
-.. ipython::
+.. ipython:: python
 
    ancova3.contrast_matrices
 
@@ -316,7 +323,7 @@ if we never observed a laborer with a PhD, for example.
 Sums of squares
 ~~~~~~~~~~~~~~~
 
-.. ipython::
+.. ipython:: python
 
    ancova = ANCOVA((x,e),(x,p),(x,(p,e)))
    print ML.rec2txt(typeI('s', ancova, salary))
@@ -331,7 +338,7 @@ Compare this to the R output
 For type II:
 
 
-.. ipython::
+.. ipython:: python
 
    print ML.rec2txt(typeII('s', ancova, salary))
 
@@ -344,7 +351,7 @@ For type II:
 And type III:
 
 
-.. ipython::
+.. ipython:: python
 
    print ML.rec2txt(typeIII('s', ancova, salary))
 
@@ -358,7 +365,7 @@ Reversing the order changes the ANOVA tables, in particular
 the degrees of freedom associated to each contrast. This is
 because the codings change when the order of the factors change.
 
-.. ipython::
+.. ipython:: python
 
    ancova2 = ANCOVA((x,p),(x,e), (x,(p,e)))
    print ML.rec2txt(typeII('s', ancova2, salary))
@@ -368,7 +375,7 @@ because the codings change when the order of the factors change.
    library(car)
    Anova(lm(S ~ X:P + X:E + X:P:E, data=data), type='II')
 
-.. ipython::
+.. ipython:: python
 
    print ML.rec2txt(typeIII('s', ancova2, salary))
 
