@@ -6,4 +6,4 @@
 
    ancova
    formula_math
-   api/index.rst
+   reference/index.rst

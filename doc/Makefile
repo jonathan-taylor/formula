@@ -2,7 +2,7 @@
 #
 
 SOURCEFORGE_USER ?= matthewbrett
-WWW=$(SOURCEFORGE_USER),nipy@web.sourceforge.net:htdocs/nipy
+WWW=$(SOURCEFORGE_USER),nipy@web.sourceforge.net:htdocs/formula
 
 # You can set these variables from the command line.
 SPHINXOPTS    = #-q # suppress all output but warnings
@@ -31,7 +31,6 @@ help:
 	@echo "  pdf		make <latex> and run the PDF generation"
 	@echo "  dist		make <all> and put results in dist/"
 	@echo "  public_html	make <dist> and rsync with public website"
-	@echo "  gitwash-update update git workflow from source repo"
 
 # Commented these out, wasn't clear if we'd use these targets or not.
 # @echo "  pickle    to make pickle files (usable by e.g. sphinx-web)"
@@ -39,8 +38,7 @@ help:
 # @echo "  changes   to make an overview over all changed/added/deprecated items"
 
 clean:
-	-rm -rf build/* dist/* *~ api/generated
-	-rm -f manual
+	-rm -rf build/* dist/*
 
 pdf: latex
 	cd build/latex && make all-pdf
@@ -49,29 +47,18 @@ all: html pdf
 
 dist: clean all
 	mkdir -p dist
-	ln build/latex/nipy*.pdf dist/
+	ln build/latex/formula*.pdf dist/
 	cp -al build/html/* dist/
 	@echo "Build finished.  Final docs are in dist/"
 
 public_html: dist
 	rsync -avH --delete dist/* $(WWW)
 
-htmlonly:
+html:
 	mkdir -p build/html build/doctrees
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) build/html
 	@echo
 	@echo "Build finished. The HTML pages are in build/html."
-
-api:
-	python ../tools/build_modref_templates.py
-	@echo "Build API docs finished."
-
-html: api htmlonly
-	-ln -s build manual
-	@echo "Build HTML and API finished."
-
-gitwash-update:
-	python ../tools/gitwash_dumper.py devel/guidelines nipy
 
 pickle:
 	mkdir -p build/pickle build/doctrees
