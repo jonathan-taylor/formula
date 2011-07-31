@@ -1,3 +1,5 @@
+""" Convenience functions for working with formulae / terms
+"""
 import numpy as np
 
 import sympy

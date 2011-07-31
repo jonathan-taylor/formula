@@ -1,3 +1,5 @@
+""" Parts of formulae: Terms, Factors, etc
+"""
 import numpy as np
 
 import sympy

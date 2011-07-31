@@ -1,3 +1,5 @@
+""" Formulae for random effects models
+"""
 import numpy as np
 
 from .formulae import Formula

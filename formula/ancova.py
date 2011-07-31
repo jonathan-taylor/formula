@@ -1,3 +1,5 @@
+""" Implementation of R's rules for design matrix creation
+"""
 import numpy as np
 
 import sympy
