@@ -692,7 +692,7 @@ def typeII(response, ancova, recarray):
         dfF = resultsF.df_resid
         ftest = resultsF.f_test(contrast_matrices['C'])
 
-        SSER = SSEF + ftest.fvalue * ftest.df_num * (SSEF / dfF)
+        SSER = SSEF + np.asscalar(ftest.fvalue) * ftest.df_num * (SSEF / dfF)
         dfR = dfF + ftest.df_num
 
         sss.append(SSER - SSEF)
@@ -752,10 +752,12 @@ def typeIII(response, ancova, recarray):
     for contrast in ancova.contrast_names:
         r = results.f_test(ancova.contrast_matrices[contrast])
         names.append(contrast)
-        fs.append(r.fvalue)
+        fvalue = np.asscalar(r.fvalue)
+        pvalue = np.asscalar(r.pvalue)
+        fs.append(fvalue)
         dfs.append(r.df_num)
-        pvals.append(r.pvalue)
-        sss.append(r.fvalue * results.scale * r.df_num)
+        pvals.append(pvalue)
+        sss.append(fvalue * results.scale * r.df_num)
 
     # Add in the "residual row"
 
