@@ -1,6 +1,7 @@
 from itertools import combinations
 
 import numpy as np
+import numpy.ma as ma
 
 import sympy
 
@@ -11,7 +12,7 @@ try:
     # matrix_rank in numpy >= 1.5.0
     from numpy.linalg import matrix_rank as rank
 except ImportError:
-    from numpy.lingalg import svd
+    from numpy.linalg import svd
     def rank(M, tol=None):
         """
         Return matrix rank of array using SVD method
@@ -272,3 +273,63 @@ class Bomber(object):
         self.msg = msg
     def __getattribute__(self, name):
         raise BombError(self.msg)
+
+
+# From matplotlib.cbook
+def iterable(obj):
+    'return true if *obj* is iterable'
+    try:
+        iter(obj)
+    except TypeError:
+        return False
+    return True
+
+
+# From matplotlib.cbook
+def is_string_like(obj):
+    'Return True if *obj* looks like a string'
+    if isinstance(obj, (str, unicode)): return True
+    # numpy strings are subclass of str, ma strings are not
+    if ma.isMaskedArray(obj):
+        if obj.ndim == 0 and obj.dtype.kind in 'SU':
+            return True
+        else:
+            return False
+    try: obj + ''
+    except: return False
+    return True
+
+
+# From matplotlib.mlab
+def rec_append_fields(rec, names, arrs, dtypes=None):
+    """
+    Return a new record array with field names populated with data
+    from arrays in *arrs*.  If appending a single field, then *names*,
+    *arrs* and *dtypes* do not have to be lists. They can just be the
+    values themselves.
+    """
+    if (not is_string_like(names) and iterable(names) \
+            and len(names) and is_string_like(names[0])):
+        if len(names) != len(arrs):
+            raise ValueError, "number of arrays do not match number of names"
+    else: # we have only 1 name and 1 array
+        names = [names]
+        arrs = [arrs]
+    arrs = map(np.asarray, arrs)
+    if dtypes is None:
+        dtypes = [a.dtype for a in arrs]
+    elif not iterable(dtypes):
+        dtypes = [dtypes]
+    if len(arrs) != len(dtypes):
+        if len(dtypes) == 1:
+            dtypes = dtypes * len(arrs)
+        else:
+            raise ValueError("dtypes must be None, a single dtype or a list")
+
+    newdtype = np.dtype(rec.dtype.descr + zip(names, dtypes))
+    newrec = np.recarray(rec.shape, dtype=newdtype)
+    for field in rec.dtype.fields:
+        newrec[field] = rec[field]
+    for name, arr in zip(names, arrs):
+        newrec[name] = arr
+    return newrec

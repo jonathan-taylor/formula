@@ -4,8 +4,6 @@ from string import uppercase
 import csv
 
 import numpy as np
-# append_fields available from numpy 1.3.0
-from numpy.lib.recfunctions import append_fields
 
 import sympy
 
@@ -16,8 +14,9 @@ except ImportError:
 else:
     have_rpy2 = True
 
-from formula.parts import Term, Factor
-from formula.ancova import ANCOVA
+from ..parts import Term, Factor
+from ..utils import rec_append_fields
+from ..ancova import ANCOVA
 
 import nose.tools as nt
 from nose.plugins.skip import SkipTest
@@ -52,9 +51,13 @@ def random_recarray(size):
     initial['Y'] = np.random.standard_normal(size)
     numeric_vars = [np.random.standard_normal(size) for _ in range(10)]
     categorical_vars = [random_letters(size, l) for l in [3,4,7,6,4,5,8]]
-    inter = append_fields(initial, ['n%s' % l for l in uppercase[:10]], numeric_vars)
+    inter = rec_append_fields(initial,
+                              ['n%s' % l for l in uppercase[:10]],
+                              numeric_vars)
     catvarchars = uppercase[:len(categorical_vars)]
-    final = append_fields(inter, ['c%s' % l for l in catvarchars], categorical_vars)
+    final = rec_append_fields(inter,
+                              ['c%s' % l for l in catvarchars],
+                              categorical_vars)
     return (final,
             sympy.symbols(['n%s' % l for l in uppercase[:10]]),
             [Factor('c%s' % s, np.unique(l)) for s, l in zip(catvarchars, categorical_vars)]
@@ -81,10 +84,9 @@ def random_from_terms_factors(terms, factors, size):
                     np.dtype([(str(terms[0]), np.float)]))
     data[str(terms[0])] = np.random.standard_normal(size)
     for t in terms[1:]:
-        data = append_fields(data, str(t),
-                                    np.random.standard_normal(size))
+        data = rec_append_fields(data, str(t), np.random.standard_normal(size))
     for f in factors:
-        data = append_fields(data, f.name, random_from_factor(f, size))
+        data = rec_append_fields(data, f.name, random_from_factor(f, size))
     return data
 
 
@@ -109,7 +111,7 @@ def test__arr2csv():
     # make test data
     size = 500
     X = random_from_categorical_formula(simple(), size)
-    X = append_fields(X, 'response', np.random.standard_normal(size))
+    X = rec_append_fields(X, 'response', np.random.standard_normal(size))
     res = []
     for func in (_arr2csv, rec2csv):
         fh, fname = mkstemp()
@@ -152,7 +154,7 @@ def testR(d=None, size=500):
     if d is None:
         d = simple()
     X = random_from_categorical_formula(d, size)
-    X = append_fields(X, 'response', np.random.standard_normal(size))
+    X = rec_append_fields(X, 'response', np.random.standard_normal(size))
     fh, fname = mkstemp()
     try:
         _arr2csv(X, fname)

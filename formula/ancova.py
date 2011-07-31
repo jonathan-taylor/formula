@@ -1,17 +1,18 @@
 import numpy as np
 
-# append_fields and recfromcsv available from numpy 1.3.0
-from numpy.lib.recfunctions import append_fields
-
 import sympy
 
 from scipy.stats import f as f_dbn
 
-from .utils import Bomber
-try:
+from .utils import Bomber, rec_append_fields
+
+try: # statsmodels 0.3.0
     from scikits.statsmodels.api import OLS
 except ImportError:
-    OLS = Bomber('Need OLS from statsmodels')
+    try: # statsmodels 0.2.0
+        from scikits.statsmodels import OLS
+    except ImportError: # no statsmodels
+        OLS = Bomber('Need OLS from statsmodels')
 
 from .formulae import Formula, I
 from .parts import Factor, is_factor, Term # Term for docstrings
@@ -640,7 +641,9 @@ def typeI(response, ancova, recarray):
     names.append('Residuals')
 
     result = np.array(names, np.dtype([('contrast','S%d' % max([len(n) for n in names]))]))
-    result = append_fields(result, ['SS', 'df', 'MS', 'F', 'p_value'], [sss, dfs, np.array(sss) / np.array(dfs), fs, pvals])
+    result = rec_append_fields(result,
+                               ['SS', 'df', 'MS', 'F', 'p_value'],
+                               [sss, dfs, np.array(sss) / np.array(dfs), fs, pvals])
     return result
 
 def typeII(response, ancova, recarray):
@@ -707,7 +710,9 @@ def typeII(response, ancova, recarray):
     names.append('Residuals')
 
     result = np.array(names, np.dtype([('contrast','S%d' % max([len(n) for n in names]))]))
-    result = append_fields(result, ['SS', 'df', 'MS', 'F', 'p_value'], [sss, dfs, np.array(sss) / np.array(dfs), fs, pvals])
+    result = rec_append_fields(result,
+                               ['SS', 'df', 'MS', 'F', 'p_value'],
+                               [sss, dfs, np.array(sss) / np.array(dfs), fs, pvals])
     return result
 
 
@@ -761,6 +766,8 @@ def typeIII(response, ancova, recarray):
     names.append('Residuals')
 
     result = np.array(names, np.dtype([('contrast','S%d' % max([len(n) for n in names]))]))
-    result = append_fields(result, ['SS', 'df', 'MS', 'F', 'p_value'], [sss, dfs, np.array(sss) / np.array(dfs), fs, pvals])
+    result = rec_append_fields(result,
+                               ['SS', 'df', 'MS', 'F', 'p_value'],
+                               [sss, dfs, np.array(sss) / np.array(dfs), fs, pvals])
     return result
 
