@@ -19,7 +19,14 @@ from formula.rutils import checkfor_r, r_check_library
 if not checkfor_r():
     raise RuntimeError('Need R to build documentation')
 if not r_check_library('car'):
-    raise RuntimeError('Need "car" library installed in R for documentation')
+    raise RuntimeError('Need "car" library installed in R for documentation '
+                       'Try the r-cran-car package in Debian / Ubuntu or '
+                       'install.packages("car") in R')
+
+try:
+    import scikits.statsmodels.api
+except ImportError:
+    raise RuntimeError("Need scikits.statsmodels >= 0.3.0 to build docs")
 
 # If your extensions are in another directory, add it here. If the directory
 # is relative to the documentation root, use os.path.abspath to make it
@@ -209,7 +216,7 @@ htmlhelp_basename = project
 # [howto/manual]).
 
 latex_documents = [
-  ('documentation', 'formula.tex', 'Formula Documentation',
+  ('index', 'formula.tex', 'Formula Documentation',
    ur'J. Taylor.','manual'),
   ]
 
