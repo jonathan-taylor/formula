@@ -42,6 +42,13 @@ def test_smoke():
     ANCOVA.add_intercept = True
     f3 = ANCOVA((1,(terms['e'],terms['p'])))
 
+def test_multiply_by_factor():
+    terms = fromrec(SALARY)
+    f = ANCOVA(1, terms['e'])
+    f2 = f.multiply_by_factor(terms['p'])
+    assert_equal(ANCOVA(1, terms['p'], (1,(terms['e'], terms['p']))), f2)
+    
+
 
 def test_types123():
     terms = fromrec(SALARY)

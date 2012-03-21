@@ -63,18 +63,10 @@ class ANCOVA(object):
     def __init__(self, *expr_factor_tuples, **keywords):
         # set intercept / main_effect behaviour
 
-        add_main_effects = False
-        if "add_main_effects" in keywords:
-            add_main_effects = keywords['add_main_effects']
-
-        add_intercept=True
-        if "add_intercept" in keywords:
-            add_intercept = keywords['add_intercept']
-
-        self.default_contrast='drop_reference'
-        if "default_contrast" in keywords:
-            self.default_contrast = keywords['default_contrast']
-
+        add_main_effects = keywords.pop('add_main_effects', True)
+        add_intercept = keywords.pop('add_intercept', True)
+        self.default_contrast = keywords.pop('default_contrast',
+                                             'drop_reference')
         self.graded_dict = {}
 
         # create a copy of graded_dict
@@ -169,7 +161,7 @@ class ANCOVA(object):
         """
         if not hasattr(self, "_codings"):
             self._codings = {}
-            for expr in sorted(self.graded_dict.keys()):
+            for expr in sorted(self.graded_dict):
                 self._codings[expr] = get_factor_codings(self.graded_dict[expr])
         return self._codings
 
@@ -208,7 +200,7 @@ class ANCOVA(object):
             self._contrasts = {}
             self._contrast_names = []
             self._formulae = []
-            for expr in sorted(self.graded_dict.keys()):
+            for expr in sorted(self.graded_dict):
                 formulae = get_contributions(self.codings[expr],
                                              self.sorted_factors,
                                              contrast=self.default_contrast)
@@ -346,11 +338,11 @@ class ANCOVA(object):
         """
         result = []
         if expr is None:
-            exprs = sorted(self.graded_dict.keys())
+            exprs = sorted(self.graded_dict)
         else:
             exprs = [sympy.sympify(expr)]
         for expr in exprs:
-            for order in self.graded_dict[expr]:
+            for order in sorted(self.graded_dict[expr]):
                 for factors in self.graded_dict[expr][order]:
                     result.append((expr, factors))
         return result
@@ -367,12 +359,12 @@ class ANCOVA(object):
         This is used in creating type II sums of squares tables.
         """
         sequenceR = []; sequenceF = []
-        for k in self.graded_dict:
+        for k in sorted(self.graded_dict):
             if k != expr:
                 sequenceR += self.sequence(k)
                 sequenceF += self.sequence(k)
             else:
-                for order in self.graded_dict[k]:
+                for order in sorted(self.graded_dict[k]):
                     for fs in self.graded_dict[k][order]:
                         if not set(fs).issuperset(factors):
                             sequenceR.append((expr, fs));
@@ -464,18 +456,19 @@ class ANCOVA(object):
             raise ValueError('other should be an ANCOVA formula')
         return concat(self, other)
 
-    def multiply_by_factor(self, factor):
+    def multiply_by_factor(self, factor, add_intercept=True):
         """
         Create a new ANCOVA with each
         existing factor multiplied by factor.
         """
-        graded_dict = self.graded_dict.copy()
-        for expr in graded_dict:
+        final_result = []
+        for expr in self.graded_dict:
             result = []
-            for factors in graded_dict[expr]:
-                result.append(list(factors) + [factor])
-            graded_dict[expr] = result
-        return ANCOVA(graded_dict)
+            for order in sorted(self.graded_dict[expr]):
+                for factors in self.graded_dict[expr][order]:
+                    result.append((expr, list(factors) + [factor]))
+            final_result += result
+        return ANCOVA(*final_result, add_intercept=add_intercept)
 
     def multiply_by_expression(self, expr):
         """
